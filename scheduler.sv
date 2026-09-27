@@ -209,15 +209,114 @@ localparam logic [1:0] LSU_STATE_DONE     = 2'b11;
 
 logic [2:0] core_state_next;
 
-logic [PC_BITS-1:0] current_pc_next;
+//logic [PC_BITS-1:0] current_pc_next;
 
-logic [LANES_PER_WAVE-1:0] exec_mask_next;
+//logic [LANES_PER_WAVE-1:0] exec_mask_next;
 
 logic [PC_BITS-1:0] selected_next_pc;
 logic               selected_next_pc_valid;
 logic               next_pc_diverged;
 
 integer lane;
+
+assign done = core_state == CORE_STATE_DONE;
+
+always_ff @(posedge clk or negedge rst_n)begin
+	if (!rst_n)begin
+		exec_mask <= '0;
+	end
+	else if(start&&(core_state == CORE_STATE_IDLE))begin
+		exec_mask <= lane_valid_mask;
+	end
+end
+always_comb begin
+	next_pc_diverged = '0;
+	selected_next_pc = '0;
+	selected_next_pc_valid = '0;
+
+	for ( lane = 0 ; lane < LANES_PER_WAVE; lane = lane + 1) begin
+		if (core_state == CORE_STATE_UPDATE)begin
+			if(exec_mask[lane]&& !selected_next_pc_valid)begin
+				selected_next_pc = next_pc[lane];
+				selected_next_pc_valid = 1'b1;
+			end	
+			else if ((next_pc[lane] != selected_next_pc)&& selected_next_pc_valid && exec_mask[lane] )begin
+				next_pc_diverged = 1'b1;
+			end
+		end	
+	end
+
+end
+
+always_ff @(posedge clk or negedge rst_n)begin
+	if (!rst_n)begin
+		divergence_detected <= '0;
+	end
+	else if (core_state == CORE_STATE_IDLE && start)
+		divergence_detected <= '0;
+	else if (core_state == CORE_STATE_UPDATE) begin
+		divergence_detected <= next_pc_diverged;
+	end
+end
+
+
+always_ff @(posedge clk or negedge rst_n)begin
+	if (!rst_n)begin
+		current_pc <= '0;
+	end
+	else if ((core_state == CORE_STATE_IDLE)&& start)
+		current_pc <= start_pc;
+	else if((core_state == CORE_STATE_UPDATE)&&selected_next_pc_valid &&  !decoded_ret)
+		current_pc <= selected_next_pc;	
+end
+
+always_ff @ ( posedge clk or negedge rst_n)begin
+	if (!rst_n)begin
+		core_state <= '0;
+	end
+	else begin
+		core_state <= core_state_next;
+	end
+end
+
+always_comb begin
+	core_state_next = '0;
+	case (core_state)
+		CORE_STATE_IDLE : begin
+			core_state_next = (start) ? CORE_STATE_FETCH : CORE_STATE_IDLE;
+		end
+		CORE_STATE_FETCH : begin 
+			core_state_next = (fetch_done) ? CORE_STATE_DECODE : CORE_STATE_FETCH;
+		end
+		CORE_STATE_DECODE : begin
+			core_state_next = CORE_STATE_REQUEST;
+		end
+		CORE_STATE_REQUEST : begin
+			core_state_next = CORE_STATE_WAIT;
+		end
+		CORE_STATE_WAIT : begin 
+			core_state_next = (~(decoded_mem_read_enable | decoded_mem_write_enable)) ? 
+			CORE_STATE_EXECUTE : (lsu_state == LSU_STATE_DONE) ? CORE_STATE_EXECUTE : CORE_STATE_WAIT;	
+		end
+		CORE_STATE_EXECUTE : begin
+			core_state_next = CORE_STATE_UPDATE;
+		end
+		CORE_STATE_UPDATE : begin
+			core_state_next = decoded_ret ? CORE_STATE_DONE : CORE_STATE_FETCH;
+		end
+		CORE_STATE_DONE :begin
+			core_state_next = start ? CORE_STATE_DONE : CORE_STATE_IDLE;
+		end
+		default : begin
+			core_state_next = CORE_STATE_IDLE;
+		end
+	endcase
+
+end
+
+
+
+
 
 // 由你实现
 

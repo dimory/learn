@@ -1,0 +1,13 @@
+rtl/sram_model.sv
+rtl/alu.sv
+rtl/decode.sv
+rtl/register_file.sv
+rtl/pc.sv
+rtl/instruction_fetcher.sv
+rtl/wave_lsu.sv
+rtl/memory_backend.sv
+rtl/memory_subsystem.sv
+rtl/scheduler.sv
+rtl/core.sv
+rtl/dispatcher.sv
+rtl/gpu_top.sv

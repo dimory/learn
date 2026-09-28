@@ -17,12 +17,12 @@
 // Name             Main coverage
 // ---------------  -----------------------------------------------------------
 // mat_add          8 threads, two Blocks, LDR/ADD/STR, all four banks
-partial_block      6 threads, second Block lane_valid_mask == 4'b0011
-mat_mul          2x2 matrix multiply and byte-addressed backward branch
-divergence         Per-lane next_pc mismatch and Lane-0 baseline policy
-bank_conflict      Four Lane loads serialized through the same SRAM bank
-zero_thread        Dispatcher zero-thread launch completion
-all                Run every test above in one simulation
+//partial_block      6 threads, second Block lane_valid_mask == 4'b0011
+//mat_mul          2x2 matrix multiply and byte-addressed backward branch
+//divergence         Per-lane next_pc mismatch and Lane-0 baseline policy
+//bank_conflict      Four Lane loads serialized through the same SRAM bank
+//zero_thread        Dispatcher zero-thread launch completion
+//all                Run every test above in one simulation
 //
 // Memory initialization
 // -----------------------------------------------------------------------------

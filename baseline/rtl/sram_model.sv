@@ -138,7 +138,7 @@ logic [DATA_BITS-1:0] memory [0:DEPTH-1];
 // Synchronous single-port access
 // ============================================================================
 
-always_ff @(posedge clk) begin
+always @(posedge clk) begin
     if (ce) begin
         if (we) begin
             memory[addr] <= wdata;

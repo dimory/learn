@@ -34,4 +34,5 @@ verdi:
 	./scripts/open_verdi.sh
 
 clean:
+	rm -rf build/simv build/simv.daidir
 	find build logs waves -mindepth 1 -maxdepth 1 -type f -delete

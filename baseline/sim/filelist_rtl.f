@@ -1,6 +1,8 @@
+rtl/gpu_pkg.sv
 rtl/sram_model.sv
 rtl/alu.sv
 rtl/decode.sv
+rtl/legacy_decode_adapter.sv
 rtl/register_file.sv
 rtl/pc.sv
 rtl/instruction_fetcher.sv

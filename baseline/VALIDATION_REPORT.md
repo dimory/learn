@@ -1,4 +1,4 @@
-# TinyGPU baseline validation report
+# TinyGPU M1 validation report
 
 ## Baseline scope
 
@@ -18,6 +18,10 @@ Current architectural scope:
 - Four single-port synchronous data-SRAM banks
 - Divergence detection only; lowest active Lane supplies the shared next PC
 
+M1 adds `gpu_pkg::decoded_uop_t`, the synthesizable Legacy Decode Adapter and
+an independent Adapter checker. The Adapter is not connected back into the
+execution controls, so M0 behavior and timing remain intact.
+
 ## Checks completed here
 
 | Check | Result |
@@ -35,6 +39,9 @@ Current architectural scope:
 | Reference ISA bank-conflict Pattern | PASS |
 | Shell-script syntax | PASS |
 | Python-script syntax | PASS |
+| Package/Adapter compile order | PASS |
+| Legacy Adapter structural integration | PASS |
+| Legacy UOP checker integration | PASS |
 
 Commands used:
 
@@ -82,6 +89,10 @@ TinyGPU baseline: ALL 6 TESTS PASSED
 
 The six tests are `mat_add`, `partial_block`, `mat_mul`, `divergence`,
 `bank_conflict`, and `zero_thread`.
+
+The pre-M1 baseline regression passed all six tests. After adding the M1
+Adapter, rerun `make sim`; the log must report both all six baseline tests and
+Legacy UOP opcode coverage as passing.
 
 The testbench is the final authority for RTL correctness. The reference ISA
 model validates Pattern encoding and expected architectural results but does

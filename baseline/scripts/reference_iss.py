@@ -3,17 +3,18 @@
 
 from pathlib import Path
 import sys
+from typing import List
 
 
 ROOT = Path(__file__).resolve().parents[1]
 LANES = 4
 
 
-def load_program(name: str) -> list[int]:
+def load_program(name: str) -> List[int]:
     return [int(word, 16) for word in (ROOT / "patterns" / name).read_text().split()]
 
 
-def execute_block(program: list[int], memory: list[int], block_id: int, mask: list[bool]):
+def execute_block(program: List[int], memory: List[int], block_id: int, mask: List[bool]):
     registers = [[0] * 16 for _ in range(LANES)]
     nzp = [0] * LANES
     pc = 0
@@ -103,7 +104,7 @@ def execute_block(program: list[int], memory: list[int], block_id: int, mask: li
     raise RuntimeError("reference model instruction timeout")
 
 
-def execute_kernel(program_name: str, threads: int, memory: list[int]):
+def execute_kernel(program_name: str, threads: int, memory: List[int]):
     program = load_program(program_name)
     divergence_seen = False
     blocks = (threads + LANES - 1) // LANES
@@ -113,7 +114,7 @@ def execute_kernel(program_name: str, threads: int, memory: list[int]):
     return divergence_seen
 
 
-def expect(memory: list[int], address: int, expected: int, label: str):
+def expect(memory: List[int], address: int, expected: int, label: str):
     actual = memory[address]
     if actual != expected:
         raise AssertionError(

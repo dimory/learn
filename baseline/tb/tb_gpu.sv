@@ -17,12 +17,12 @@
 // Name             Main coverage
 // ---------------  -----------------------------------------------------------
 // mat_add          8 threads, two Blocks, LDR/ADD/STR, all four banks
-//partial_block      6 threads, second Block lane_valid_mask == 4'b0011
-//mat_mul          2x2 matrix multiply and byte-addressed backward branch
-//divergence         Per-lane next_pc mismatch and Lane-0 baseline policy
-//bank_conflict      Four Lane loads serialized through the same SRAM bank
-//zero_thread        Dispatcher zero-thread launch completion
-//all                Run every test above in one simulation
+// partial_block    6 threads, second Block lane_valid_mask == 4'b0011
+// mat_mul          2x2 matrix multiply and byte-addressed backward branch
+// divergence       Per-lane next_pc mismatch and Lane-0 baseline policy
+// bank_conflict    Four Lane loads serialized through the same SRAM bank
+// zero_thread      Dispatcher zero-thread launch completion
+// all              Run every test above in one simulation
 //
 // Memory initialization
 // -----------------------------------------------------------------------------
@@ -69,8 +69,13 @@ logic                         divergence_detected;
 
 integer failure_count;
 integer test_count;
+integer reported_uop_error_count;
 logic   saw_divergence;
 string  selected_test;
+
+logic [31:0] uop_error_count;
+logic [31:0] uop_checked_count;
+logic [15:0] uop_opcode_seen;
 
 gpu_top #(
     .DATA_BITS         (DATA_BITS),
@@ -90,6 +95,17 @@ gpu_top #(
     .busy                (busy),
     .done                (done),
     .divergence_detected (divergence_detected)
+);
+
+legacy_uop_checker u_legacy_uop_checker (
+    .clk                (clk),
+    .rst_n              (rst_n),
+    .core_state         (dut.u_core.core_state),
+    .legacy_instruction (dut.u_core.instruction),
+    .decoded_uop        (dut.u_core.decoded_uop),
+    .error_count        (uop_error_count),
+    .checked_count      (uop_checked_count),
+    .opcode_seen        (uop_opcode_seen)
 );
 
 initial begin
@@ -240,7 +256,16 @@ task automatic expect_data(
 endtask
 
 task automatic report_case(input string case_name, input integer failures_before);
+    integer new_uop_errors;
     begin
+        new_uop_errors = uop_error_count - reported_uop_error_count;
+        if (new_uop_errors != 0) begin
+            failure_count = failure_count + new_uop_errors;
+            $display("[FAIL] %s detected %0d Legacy UOP error(s)",
+                     case_name, new_uop_errors);
+        end
+        reported_uop_error_count = uop_error_count;
+
         test_count = test_count + 1;
         if (failure_count == failures_before)
             $display("[PASS] %s", case_name);
@@ -398,6 +423,7 @@ initial begin
     thread_count    = '0;
     failure_count   = 0;
     test_count      = 0;
+    reported_uop_error_count = 0;
     saw_divergence  = 1'b0;
 
     if (!$value$plusargs("TEST=%s", selected_test))
@@ -425,6 +451,20 @@ initial begin
         failure_count = failure_count + 1;
         $display("[FAIL] Unknown TEST selection: %s", selected_test);
     end
+
+    if (selected_test == "all") begin
+        if ((uop_opcode_seen & 16'h83ff) !== 16'h83ff) begin
+            failure_count = failure_count + 1;
+            $display("[FAIL] Legacy UOP opcode coverage expected=0x83ff actual=0x%04h",
+                     uop_opcode_seen);
+        end
+        else begin
+            $display("[PASS] Legacy UOP opcode coverage 0-9 and F");
+        end
+    end
+
+    $display("[INFO] Legacy UOP checker examined %0d instruction(s)",
+             uop_checked_count);
 
     if (failure_count == 0) begin
         $display("\n========================================");

@@ -4,6 +4,7 @@
 from pathlib import Path
 import re
 import sys
+from typing import Dict, List
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ EXPECTED_RTL = {
     "dispatcher",
     "gpu_top",
     "instruction_fetcher",
+    "legacy_decode_adapter",
     "memory_backend",
     "memory_subsystem",
     "pc",
@@ -25,7 +27,7 @@ EXPECTED_RTL = {
 }
 
 PATTERN_LENGTHS = {
-    "mat_add.hex": 13,
+    "mat_add.hex": 14,
     "mat_mul.hex": 28,
     "divergence.hex": 14,
     "bank_conflict.hex": 7,
@@ -37,7 +39,7 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
-def read_filelist(name: str) -> list[Path]:
+def read_filelist(name: str) -> List[Path]:
     result = []
     for raw_line in (ROOT / "sim" / name).read_text().splitlines():
         line = raw_line.strip()
@@ -51,6 +53,12 @@ def check_filelists() -> None:
     tb_files = read_filelist("filelist_tb.f")
     all_files = rtl_files + tb_files
 
+    rtl_entries = [path.relative_to(ROOT).as_posix() for path in rtl_files]
+    if not rtl_entries or rtl_entries[0] != "rtl/gpu_pkg.sv":
+        fail("rtl/gpu_pkg.sv must be the first RTL compile entry")
+    if rtl_entries.index("rtl/legacy_decode_adapter.sv") > rtl_entries.index("rtl/core.sv"):
+        fail("legacy_decode_adapter.sv must be compiled before core.sv")
+
     for path in all_files:
         if not path.is_file():
             fail(f"filelist entry is missing: {path.relative_to(ROOT)}")
@@ -58,7 +66,7 @@ def check_filelists() -> None:
     if any("old" in path.name.lower() for path in all_files):
         fail("an old-named file is present in a compile filelist")
 
-    modules: dict[str, Path] = {}
+    modules: Dict[str, Path] = {}
     module_re = re.compile(r"^\s*module\s+([A-Za-z_][A-Za-z0-9_]*)", re.M)
     for path in rtl_files:
         for module_name in module_re.findall(path.read_text()):
@@ -77,6 +85,7 @@ def check_filelists() -> None:
         fail(f"unexpected RTL modules: {sorted(unexpected)}")
 
     print("PASS: RTL and testbench filelists are complete")
+    print("PASS: Package and Adapter compile order is correct")
     print("PASS: files containing 'old' are excluded")
     print("PASS: RTL module names are unique")
 

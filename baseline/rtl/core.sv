@@ -186,6 +186,11 @@ logic decoded_nzp_write_enable;
 logic decoded_pc_mux;
 logic decoded_ret;
 
+logic [3:0] legacy_opcode;
+gpu_pkg::decoded_uop_t decoded_uop;
+
+assign legacy_opcode = instruction[15:12];
+
 logic [DATA_BITS-1:0] rs      [LANES_PER_WAVE-1:0];
 logic [DATA_BITS-1:0] rt      [LANES_PER_WAVE-1:0];
 logic [DATA_BITS-1:0] alu_out [LANES_PER_WAVE-1:0];
@@ -254,6 +259,26 @@ decoder u_decoder (
     .decoded_nzp_write_enable    (decoded_nzp_write_enable),
     .decoded_pc_mux              (decoded_pc_mux),
     .decoded_ret                 (decoded_ret)
+);
+
+legacy_decode_adapter u_legacy_decode_adapter (
+    .core_state                  (core_state),
+    .legacy_opcode               (legacy_opcode),
+    .decoded_rd_address          (decoded_rd_address),
+    .decoded_rs_address          (decoded_rs_address),
+    .decoded_rt_address          (decoded_rt_address),
+    .decoded_nzp                 (decoded_nzp),
+    .decoded_immediate           (decoded_immediate),
+    .decoded_reg_write_enable    (decoded_reg_write_enable),
+    .decoded_reg_input_mux       (decoded_reg_input_mux),
+    .decoded_mem_read_enable     (decoded_mem_read_enable),
+    .decoded_mem_write_enable    (decoded_mem_write_enable),
+    .decoded_alu_arithmetic_mux  (decoded_alu_arithmetic_mux),
+    .decoded_alu_output_mux      (decoded_alu_output_mux),
+    .decoded_nzp_write_enable    (decoded_nzp_write_enable),
+    .decoded_pc_mux              (decoded_pc_mux),
+    .decoded_ret                 (decoded_ret),
+    .decoded_uop                 (decoded_uop)
 );
 
 wave_lsu #(

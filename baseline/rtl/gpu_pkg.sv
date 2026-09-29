@@ -29,6 +29,7 @@
 // Architectural address            64 bits
 // Wave PC                           64-bit byte address
 // Logical Wave size                 32 lanes
+// EXEC/VCC architectural storage    64 bits; Wave32 uses the low 32 bits
 // Physical SIMD width               4 lanes
 // Wave execution beats              8
 // Resident Wave Contexts            4
@@ -69,6 +70,8 @@ localparam int CDNA_PC_BITS            = 64;
 localparam int CDNA_INST_DWORD_BITS    = 32;
 
 localparam int CDNA_WAVE_SIZE          = 32;
+localparam int CDNA_EXEC_BITS          = 64;
+localparam int CDNA_VCC_BITS           = 64;
 localparam int CDNA_SIMD_LANES         = 4;
 localparam int CDNA_NUM_WAVE_BEATS     =
     CDNA_WAVE_SIZE / CDNA_SIMD_LANES;
@@ -94,6 +97,11 @@ localparam int CDNA_REG_INDEX_BITS     = 10;
 localparam int CDNA_TRANSACTION_BITS   = 8;
 localparam int CDNA_WAIT_COUNTER_BITS  = 6;
 
+localparam int CDNA_WORKGROUP_ID_BITS       = 16;
+localparam int CDNA_WORKGROUP_WAVE_ID_BITS  = 5;
+localparam int CDNA_WORKGROUP_WAVE_COUNT_BITS = 6;
+localparam int CDNA_GLOBAL_THREAD_ID_BITS   = 32;
+
 // ============================================================================
 // Common architectural types
 // ============================================================================
@@ -101,8 +109,8 @@ localparam int CDNA_WAIT_COUNTER_BITS  = 6;
 typedef logic [CDNA_DATA_BITS-1:0]         cdna_data_t;
 typedef logic [CDNA_ADDR_BITS-1:0]         cdna_addr_t;
 typedef logic [CDNA_PC_BITS-1:0]           cdna_pc_t;
-typedef logic [CDNA_WAVE_SIZE-1:0]         cdna_exec_mask_t;
-typedef logic [CDNA_WAVE_SIZE-1:0]         cdna_vcc_t;
+typedef logic [CDNA_EXEC_BITS-1:0]         cdna_exec_mask_t;
+typedef logic [CDNA_VCC_BITS-1:0]          cdna_vcc_t;
 typedef logic [CDNA_WAVE_ID_BITS-1:0]      cdna_wave_id_t;
 typedef logic [CDNA_LANE_ID_BITS-1:0]      cdna_lane_id_t;
 typedef logic [CDNA_SIMD_LANE_ID_BITS-1:0] cdna_simd_lane_id_t;
@@ -110,6 +118,32 @@ typedef logic [CDNA_WAVE_BEAT_BITS-1:0]    cdna_wave_beat_t;
 typedef logic [CDNA_REG_INDEX_BITS-1:0]    cdna_reg_index_t;
 typedef logic [CDNA_TRANSACTION_BITS-1:0]  cdna_transaction_id_t;
 typedef logic [CDNA_WAIT_COUNTER_BITS-1:0] cdna_wait_counter_t;
+
+typedef logic [CDNA_WORKGROUP_ID_BITS-1:0]
+    cdna_workgroup_id_t;
+
+typedef logic [CDNA_WORKGROUP_WAVE_ID_BITS-1:0]
+    cdna_workgroup_wave_id_t;
+
+typedef logic [CDNA_WORKGROUP_WAVE_COUNT_BITS-1:0]
+    cdna_workgroup_wave_count_t;
+
+typedef logic [CDNA_GLOBAL_THREAD_ID_BITS-1:0]
+    cdna_global_thread_id_t;
+
+// ============================================================================
+// M2 Wave Context lifecycle
+// ============================================================================
+
+localparam int WAVE_CONTEXT_STATE_BITS = 3;
+typedef logic [WAVE_CONTEXT_STATE_BITS-1:0] wave_context_state_t;
+
+localparam wave_context_state_t WAVE_STATE_FREE    = 3'd0;
+localparam wave_context_state_t WAVE_STATE_READY   = 3'd1;
+localparam wave_context_state_t WAVE_STATE_ISSUED  = 3'd2;
+localparam wave_context_state_t WAVE_STATE_WAITCNT = 3'd3;
+localparam wave_context_state_t WAVE_STATE_BARRIER = 3'd4;
+localparam wave_context_state_t WAVE_STATE_DONE    = 3'd5;
 
 // ============================================================================
 // Instruction formats

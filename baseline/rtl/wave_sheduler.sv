@@ -227,7 +227,7 @@ module wave_scheduler #(
 
     // Round-Robin扫描起点
     logic [WAVE_ID_BITS-1:0] round_robin_pointer;
-
+	logic [WAVE_ID_BITS-1:0] round_robin_pointer_nxt;
     // 背压期间保存选中的Wave
     logic                    locked;
     logic [WAVE_ID_BITS-1:0] locked_wave_id;
@@ -244,6 +244,63 @@ module wave_scheduler #(
     integer index_comb;
 
     // 后续由你逐块实现
+always_ff @(posedge clk or negedge rst_n)begin
+	if(!rst_n)
+		round_robin_pointer <= '0;
+	else 
+		round_robin_pointer <= round_robin_pointer_nxt;
+end
+
+
+assign 	round_robin_pointer_nxt = 
+		(schedule_fire && selected_wave_id == NUM_WAVE_CONTEXTS-1) ?
+		'0 : schedule_fire ? 
+		(selected_wave_id + 1'b1): round_robin_pointer;
+
+
+always_comb begin
+	candidate_valid = '0;
+	candidate_wave_id = '0;
+	for (scan_comb = 0; scan_comb < NUM_WAVE_CONTEXTS ; scan_comb = scan_comb +1)begin
+		index_comb = scan_comb + round_robin_pointer;
+		if (index_comb >= NUM_WAVE_CONTEXTS)
+			index_comb = index_comb - NUM_WAVE_CONTEXTS;
+		if( ready_mask[index_comb] == 1'b1&&!candidate_valid)begin
+			candidate_valid = 1'b1;
+			candidate_wave_id = index_comb;
+		end
+	end
+
+end	
+aalways_comb begin
+    selected_valid   = '0;
+    selected_wave_id = '0;
+
+    if (rst_n) begin
+        if (locked) begin
+            selected_valid   = 1'b1;
+            selected_wave_id = locked_wave_id;
+        end
+        else if (candidate_valid) begin
+            selected_valid   = 1'b1;
+            selected_wave_id = candidate_wave_id;
+        end
+    end
+end
+assign schedule_fire = selected_valid && selected_ready;
+
+always_ff @(posedge clk or negedge rst_n)begin
+	if (!rst_n)begin
+		locked <= '0;
+		locked_wave_id <= '0;
+	end
+	else if (schedule_fire)
+		locked <='0;
+	else if (selected_valid && !selected_ready)begin
+		locked_wave_id <= selected_wave_id;
+		locked <= 1'b1;
+	end
+end
 
 endmodule
 

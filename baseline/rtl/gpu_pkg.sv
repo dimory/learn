@@ -101,6 +101,8 @@ localparam int CDNA_WORKGROUP_ID_BITS       = 16;
 localparam int CDNA_WORKGROUP_WAVE_ID_BITS  = 5;
 localparam int CDNA_WORKGROUP_WAVE_COUNT_BITS = 6;
 localparam int CDNA_GLOBAL_THREAD_ID_BITS   = 32;
+localparam int CDNA_THREAD_COUNT_BITS       = 32;
+localparam int CDNA_THREADS_PER_WORKGROUP   = 64;
 
 // ============================================================================
 // Common architectural types

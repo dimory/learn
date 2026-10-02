@@ -418,7 +418,7 @@ M2 Testbench 必须检查：
 
 ## 16. M1 与 M2 如何共存
 
-M1 当前的 `dispatcher.sv`、`scheduler.sv` 和 `core.sv` 继续组成 Legacy 可执行基线。M2 新模块先放在独立的 `m2_wave_control_top`/Testbench filelist 中，不立即接管 `gpu_top.sv`。
+M1 当前的 Legacy 模块继续组成 `gpu_top.sv` 可执行基线。M2 的五个功能模块由 `wave_control_subsystem.sv` 纯连线集成，使用独立的 RTL/Testbench filelist，不立即接管 `gpu_top.sv`。
 
 这样做有两个目的：
 
@@ -443,7 +443,7 @@ M3 才会把真实、带 `wave_id` 的 Fetch/Decode/Execute 管线接到 M2 控�
 | M2-10 | Barrier placeholder | BARRIER Wave 只被显式 release mask 唤醒 |
 | M2-11 | End Program + outstanding | 保持 DONE，不提前重用 Wave ID |
 | M2-12 | Safe retire | counters 清零后 release、完成计数加一 |
-| M2-13 | Context reuse | 新 Wave 不继承旧 PC/EXEC/VCC/Counter/Wait |
+| M2-13 | Context reuse | 新 Wave 不继承旧 PC/EXEC/VCC/Counter 或有效 Wait 条件；下一次 arm 完整覆盖保存的 Wait 配置 |
 | M2-14 | Kernel completion | 最后一个 Wave retire 后只产生一次 `done` |
 | M2-15 | M1 regression | 原六个 Pattern 仍全部 PASS |
 
@@ -459,7 +459,7 @@ M3 才会把真实、带 `wave_id` 的 Fetch/Decode/Execute 管线接到 M2 控�
 8. 由 Codex 完成 M2 Testbench、Assertions 和事件 Pattern。
 9. 运行一次 M2 回归和一次完整 M1 回归。
 
-我们不会每加一个文件就运行完整 VCS；在 Context+Dispatcher+Scheduler 闭环后做一次阶段检查，在 Tracker+Retire+Top 完成后做完整 M2 回归。
+采用已约定的整体阶段验证：五个功能模块完成后补齐 Top/TB，再运行整体 M2 回归与完整 M1 回归；不追加单模块验证。
 
 ## 19. 后续升级接口
 
@@ -514,3 +514,15 @@ M3 才会把真实、带 `wave_id` 的 Fetch/Decode/Execute 管线接到 M2 控�
 ## 模块总结与后续升级
 
 M2 的最终交付不是一个更大的旧式 Core FSM，而是一套可组合的多 Wave 控制平面。它把“派发、保存、选择、等待、退休”拆成单一职责模块，先用 synthetic event 验证 Wave 生命周期，再在 M3 接入真实 CDNA5 指令与寄存器数据通路。这样的边界可以直接承接后续非阻塞 VMEM/LDS、Barrier、MFMA/WMMA 和 Tensor Data Mover，而不必再次推翻 Wave ID 与状态管理。
+
+## 22. baseline_1003 实现补充（2026-10-03）
+
+- 五个 M2 功能模块已由 `wave_control_subsystem.sv` 纯连线集成。
+- 默认 Workgroup ID 扩为 32 位，匹配默认 32 位线程数量接口。
+- 寄存器采用异步低有效复位；组合逻辑不添加 `rst_n` 门控。
+- Wait 存储采用 reset > arm > wakeup > hold；alloc/release 不清除保存的 Wait 配置。
+  失效配置不参与比较，下一次 arm 完整覆盖；FREE/DONE 必须无有效 Wait。
+- 正常 Counter 事件必须满足容量协议；RTL 越界保持行为由负向场景验证。
+- 最终验收平台固定为 VCS2016 + Verdi2016；新增 `make m2`、
+  `make m2_vcs_matrix`、`make m2_verdi`。当前实际执行结果及平台验收状态
+  见 `M2_STAGE_REPORT.md`。

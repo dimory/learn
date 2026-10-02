@@ -36,3 +36,18 @@ verdi:
 clean:
 	rm -rf build/simv build/simv.daidir
 	find build logs waves -mindepth 1 -maxdepth 1 -type f -delete
+
+# M2 control-plane verification (independent of Legacy gpu_top).
+.PHONY: m2 m2_vcs_matrix m2_verdi m2_iverilog m2_matrix m1_verilator
+m2:
+	./scripts/run_m2_vcs.sh
+m2_vcs_matrix:
+	./scripts/run_m2_vcs_matrix.sh
+m2_verdi:
+	./scripts/open_m2_verdi.sh
+m2_iverilog:
+	python3 scripts/run_m2_iverilog.py
+m2_matrix:
+	python3 scripts/run_m2_iverilog.py --matrix
+m1_verilator:
+	python3 scripts/run_m1_verilator.py

@@ -120,6 +120,27 @@ def check_patterns() -> None:
     print("PASS: absolute branch targets use byte addresses")
 
 
+def check_m2_filelists() -> None:
+    expected = {"wave_context_table", "wave_dispatcher", "wave_scheduler",
+                "wave_dependency_tracker", "wave_retire_controller", "wave_control_subsystem"}
+    rtl_files = read_filelist("filelist_m2_rtl.f")
+    tb_files = read_filelist("filelist_m2_tb.f")
+    if rtl_files[0] != ROOT / "rtl/gpu_pkg.sv":
+        fail("M2 package must be the first compile entry")
+    modules = set()
+    for path in rtl_files + tb_files:
+        if not path.is_file():
+            fail(f"missing M2 filelist entry: {path}")
+        names = re.findall(r"^\s*module\s+([A-Za-z_][A-Za-z0-9_]*)", path.read_text(), re.M)
+        for name in names:
+            if name in modules:
+                fail(f"duplicate M2 module: {name}")
+            modules.add(name)
+    if modules != expected | {"m2_protocol_checker", "tb_wave_control_subsystem"}:
+        fail(f"M2 module set is incomplete: {sorted(modules)}")
+    print("PASS: M2 RTL/TB filelists, module names and package order")
+
+
 def check_basic_sv_balance() -> None:
     for path in read_filelist("filelist_rtl.f") + read_filelist("filelist_tb.f"):
         text = path.read_text()
@@ -136,6 +157,7 @@ def check_basic_sv_balance() -> None:
 
 def main() -> int:
     check_filelists()
+    check_m2_filelists()
     check_patterns()
     check_basic_sv_balance()
     print("PASS: static preflight completed")

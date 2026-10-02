@@ -97,7 +97,9 @@ localparam int CDNA_REG_INDEX_BITS     = 10;
 localparam int CDNA_TRANSACTION_BITS   = 8;
 localparam int CDNA_WAIT_COUNTER_BITS  = 6;
 
-localparam int CDNA_WORKGROUP_ID_BITS       = 16;
+// A 32-bit launch count can need more than 65536 Workgroups. Keep the ID
+// wide enough for any default-width one-dimensional launch, including WG=1.
+localparam int CDNA_WORKGROUP_ID_BITS       = 32;
 localparam int CDNA_WORKGROUP_WAVE_ID_BITS  = 5;
 localparam int CDNA_WORKGROUP_WAVE_COUNT_BITS = 6;
 localparam int CDNA_GLOBAL_THREAD_ID_BITS   = 32;
@@ -146,6 +148,41 @@ localparam wave_context_state_t WAVE_STATE_ISSUED  = 3'd2;
 localparam wave_context_state_t WAVE_STATE_WAITCNT = 3'd3;
 localparam wave_context_state_t WAVE_STATE_BARRIER = 3'd4;
 localparam wave_context_state_t WAVE_STATE_DONE    = 3'd5;
+
+// ============================================================================
+// M2 Memory dependency accounting
+// ============================================================================
+// These encodings are internal M2 event identifiers, not ISA opcode encodings.
+// Kind N selects counter N and bit N of a Wait counter-selection mask.
+// Encodings 0..6 are valid; 3'd7 is reserved/invalid.
+// Counters account for outstanding modeled backend operations per Wave.
+// They are not lane counts, transaction counts or elapsed-cycle counts.
+
+localparam int DEPENDENCY_KIND_BITS     = 3;
+localparam int DEPENDENCY_COUNTER_COUNT = 7;
+localparam int DEPENDENCY_AMOUNT_BITS   = CDNA_WAIT_COUNTER_BITS;
+
+typedef logic [DEPENDENCY_KIND_BITS-1:0] dependency_kind_t;
+typedef logic [DEPENDENCY_COUNTER_COUNT-1:0] dependency_counter_mask_t;
+typedef logic [DEPENDENCY_AMOUNT_BITS-1:0] dependency_amount_t;
+
+localparam dependency_kind_t DEP_LOAD   = 3'd0;
+localparam dependency_kind_t DEP_STORE  = 3'd1;
+localparam dependency_kind_t DEP_DS     = 3'd2;
+localparam dependency_kind_t DEP_KM     = 3'd3;
+localparam dependency_kind_t DEP_ASYNC  = 3'd4;
+localparam dependency_kind_t DEP_TENSOR = 3'd5;
+localparam dependency_kind_t DEP_X      = 3'd6;
+
+// Six counter classes use the common 6-bit width. KM has a 5-bit range.
+// Preserve CDNA_WAIT_COUNTER_BITS and cdna_wait_counter_t for existing users.
+localparam int CDNA_LOAD_COUNTER_BITS   = CDNA_WAIT_COUNTER_BITS;
+localparam int CDNA_STORE_COUNTER_BITS  = CDNA_WAIT_COUNTER_BITS;
+localparam int CDNA_DS_COUNTER_BITS     = CDNA_WAIT_COUNTER_BITS;
+localparam int CDNA_KM_COUNTER_BITS     = 5;
+localparam int CDNA_ASYNC_COUNTER_BITS  = CDNA_WAIT_COUNTER_BITS;
+localparam int CDNA_TENSOR_COUNTER_BITS = CDNA_WAIT_COUNTER_BITS;
+localparam int CDNA_X_COUNTER_BITS      = CDNA_WAIT_COUNTER_BITS;
 
 // ============================================================================
 // Instruction formats

@@ -1,0 +1,2261 @@
+--- a/M2_MULTI_WAVE_CONTROL_SPEC.md
++++ b/M2_MULTI_WAVE_CONTROL_SPEC.md
+@@ -418,7 +418,7 @@
+ 
+ ## 16. M1 与 M2 如何共存
+ 
+-M1 当前的 `dispatcher.sv`、`scheduler.sv` 和 `core.sv` 继续组成 Legacy 可执行基线。M2 新模块先放在独立的 `m2_wave_control_top`/Testbench filelist 中，不立即接管 `gpu_top.sv`。
++M1 当前的 Legacy 模块继续组成 `gpu_top.sv` 可执行基线。M2 的五个功能模块由 `wave_control_subsystem.sv` 纯连线集成，使用独立的 RTL/Testbench filelist，不立即接管 `gpu_top.sv`。
+ 
+ 这样做有两个目的：
+ 
+@@ -443,7 +443,7 @@
+ | M2-10 | Barrier placeholder | BARRIER Wave 只被显式 release mask 唤醒 |
+ | M2-11 | End Program + outstanding | 保持 DONE，不提前重用 Wave ID |
+ | M2-12 | Safe retire | counters 清零后 release、完成计数加一 |
+-| M2-13 | Context reuse | 新 Wave 不继承旧 PC/EXEC/VCC/Counter/Wait |
++| M2-13 | Context reuse | 新 Wave 不继承旧 PC/EXEC/VCC/Counter 或有效 Wait 条件；下一次 arm 完整覆盖保存的 Wait 配置 |
+ | M2-14 | Kernel completion | 最后一个 Wave retire 后只产生一次 `done` |
+ | M2-15 | M1 regression | 原六个 Pattern 仍全部 PASS |
+ 
+@@ -459,7 +459,7 @@
+ 8. 由 Codex 完成 M2 Testbench、Assertions 和事件 Pattern。
+ 9. 运行一次 M2 回归和一次完整 M1 回归。
+ 
+-我们不会每加一个文件就运行完整 VCS；在 Context+Dispatcher+Scheduler 闭环后做一次阶段检查，在 Tracker+Retire+Top 完成后做完整 M2 回归。
++采用已约定的整体阶段验证：五个功能模块完成后补齐 Top/TB，再运行整体 M2 回归与完整 M1 回归；不追加单模块验证。
+ 
+ ## 19. 后续升级接口
+ 
+@@ -514,3 +514,15 @@
+ ## 模块总结与后续升级
+ 
+ M2 的最终交付不是一个更大的旧式 Core FSM，而是一套可组合的多 Wave 控制平面。它把“派发、保存、选择、等待、退休”拆成单一职责模块，先用 synthetic event 验证 Wave 生命周期，再在 M3 接入真实 CDNA5 指令与寄存器数据通路。这样的边界可以直接承接后续非阻塞 VMEM/LDS、Barrier、MFMA/WMMA 和 Tensor Data Mover，而不必再次推翻 Wave ID 与状态管理。
++
++## 22. baseline_1003 实现补充（2026-10-03）
++
++- 五个 M2 功能模块已由 `wave_control_subsystem.sv` 纯连线集成。
++- 默认 Workgroup ID 扩为 32 位，匹配默认 32 位线程数量接口。
++- 寄存器采用异步低有效复位；组合逻辑不添加 `rst_n` 门控。
++- Wait 存储采用 reset > arm > wakeup > hold；alloc/release 不清除保存的 Wait 配置。
++  失效配置不参与比较，下一次 arm 完整覆盖；FREE/DONE 必须无有效 Wait。
++- 正常 Counter 事件必须满足容量协议；RTL 越界保持行为由负向场景验证。
++- 最终验收平台固定为 VCS2016 + Verdi2016；新增 `make m2`、
++  `make m2_vcs_matrix`、`make m2_verdi`。当前实际执行结果及平台验收状态
++  见 `M2_STAGE_REPORT.md`。
+--- /dev/null
++++ b/M2_STAGE_REPORT.md
+@@ -0,0 +1,154 @@
++# TinyGPU M2 阶段验证报告
++
++日期：2026-10-03（北京时间）。输入工程：用户上传的 `baseline_1003.zip`。
++最终验收平台：**VCS2016 + Verdi2016**。
++
++## 阶段结论
++
++M2 的五个功能模块已经完成并通过 `wave_control_subsystem.sv` 集成。
++整体 M2 回归的 8 组参数配置全部通过；M1 的六个 Pattern 和 Legacy UOP
++opcode 0–9/F 覆盖检查也全部通过。
++
++这里实际使用 **Icarus Verilog 12.0** 运行 M2、**Verilator 5.020** 运行 M1。
++本环境没有 VCS2016/Verdi2016，因此最终平台的编译、仿真和 FSDB 打开
++尚未执行。这些结果可以作为 M2 功能完成的阶段证据；不能标记为已经通过
++VCS2016 平台验收。工程已提供该平台的默认配置、参数矩阵和波形入口。
++
++## 本次修改
++
++| 文件 | 修改及原因 |
++| --- | --- |
++| `rtl/wave_sheduler.sv` → `rtl/wave_scheduler.sv` | 统一文件名；修正 `aalways_comb`；移除组合输出的 `rst_n` 判断，保留寄存器异步复位 |
++| `rtl/wave_retire_controller.sv` | 上传版本仍为框架，补入最低 ID 优先的首项选择逻辑；退休条件为 DONE 且七类 counter 全部为零 |
++| `rtl/gpu_pkg.sv` | `CDNA_WORKGROUP_ID_BITS` 从 16 扩为 32，避免 WG ID 超过 65535 后回绕，匹配默认 32 位线程数量接口 |
++| `rtl/wave_control_subsystem.sv` | 新增纯连线 Top，连接五个 M2 模块，没有新增寄存器或状态机 |
++| `tb/tb_wave_control_subsystem.sv` | 新增整体控制子系统 TB、整数参考模型、定向场景及固定种子随机事件 |
++| `tb/m2_protocol_checker.sv` | 新增仿真协议检查，包括状态 mask 分区、握手对象、Wait/Commit 对齐、停顿稳定和安全退休 |
++| `sim/filelist_m2_*.f`、`scripts/`、`Makefile` | 新增独立 M2 编译、回归、Verdi 入口及补充工具入口 |
++
++上传的原始文件未在本地解压工作目录之外被改写。M1 执行 RTL保持原样；
++`gpu_pkg.sv` 的上述 M2 公共宽度更新已随完整 M1 回归检查。
++完整源代码变更见 `M2_CHANGES.patch`。
++
++## 集成连线和外部协议
++
++| 事件/数据 | 连接关系 |
++| --- | --- |
++| Allocation | Dispatcher 输出 Descriptor；Context Table 提供 FREE ID/ready；`alloc_fire` 同时初始化 Table 与 Tracker |
++| Scheduling | Scheduler 输出 selected ID/valid；外部执行端提供 ready；`schedule_fire` 驱动 Table 的 READY → ISSUED |
++| Context read | Scheduler 的 ID 直接连接 Table 读口，架构数据送出 Top |
++| Wait wakeup | `waitcnt_mask & wait_satisfied_mask` 同时送 Table 与 Tracker；WAITCNT → READY，并清除 `wait_active` |
++| Retirement | Retire Controller 输出 release ID/valid 给 Table 与 Tracker，completion 给 Dispatcher |
++
++真实执行端和后端尚未接入。TB 为这些接口提供 synthetic events，验证 M2
++对接收事件的反应，而不是执行真实 M3 指令。
++
++Wait 指令在提交沿同时提供 `commit_valid`、`wait_arm_valid` 和相同 Wave ID。
++执行端根据 `wait_arm_satisfied` 选择 `commit_next_state=READY/WAITCNT`；
++Top 不生成 Commit 下一状态。`wait_arm_valid` 不得依赖该 satisfied 输出。
++Wait query 使用当前寄存器 counter：同沿 completion/arm 后的 count 满足条件时，
++先进入 WAITCNT，再由下一沿的 wakeup 恢复 READY。
++
++保持已约定的简洁 RTL：组合逻辑不判断复位；Wait 存储只采用 reset > arm >
++wakeup > hold，不增加 alloc/release 清除配置。失效配置不参与判断；下一次
++arm 覆盖全部配置。FREE/DONE 不允许保留有效 Wait，由验证端检查系统协议。
++Counter 继续采用 reset/release/alloc 初始化，并在净结果越界时保持原值。
++正常流量必须符合容量协议，负向测试单独检查越界保护行为。
++
++## 已执行的 M2 参数矩阵
++
++所有配置使用完整的五模块 Top。单 Context 配置跳过多 Context 的 multi-hot
++场景，运行 8 个场景组；其他配置各运行 9 个场景组。
++
++| Context 数 | 每 Workgroup 线程数 | 场景组 | TB cycles | TB checks | 结果 |
++| ---: | ---: | ---: | ---: | ---: | --- |
++| 1 | 64 | 8 | 705 | 48,042 | PASS |
++| 3 | 64 | 9 | 659 | 81,902 | PASS |
++| 4 | 64 | 9 | 661 | 100,700 | PASS |
++| 5 | 64 | 9 | 693 | 125,010 | PASS |
++| 8 | 64 | 9 | 768 | 203,148 | PASS |
++| 4 | 1 | 9 | 6,235 | 947,948 | PASS |
++| 4 | 33 | 9 | 774 | 117,876 | PASS |
++| 4 | 97 | 9 | 738 | 112,404 | PASS |
++
++证据：`logs/m2_results.json` 和 `logs/m2_n<N>_wg<P>.log`。
++默认配置的完成签名：
++
++```text
++TinyGPU M2: ALL 9 SCENARIO GROUPS PASSED N=4 WG=64 cycles=661 checks=100700
++```
++
++## M2 规格场景覆盖
++
++| 规格编号 | 本阶段检查 |
++| --- | --- |
++| M2-01 | 零线程无分配，done 为单周期 |
++| M2-02、03 | 1/31/32/33/64/70/129/257 threads 的 Descriptor、部分 Wave EXEC、WG 元数据 |
++| M2-04 | 执行端停顿填满 Context；分配等待；释放后继续派发 |
++| M2-05、06 | 每次 RR 选择与参考模型一致；背压期间 ID 和完整架构 payload 稳定 |
++| M2-07 | Counter 非零时可回 READY，其他 Wave 和后端事件继续推进 |
++| M2-08 | 空 mask、零及非零阈值、七类组合 Wait、输入变化后保存的配置仍生效 |
++| M2-09 | 七类 counter 同周期增减净变化、边界值；KM 独立 5 位范围；负向越界保持 |
++| M2-10 | Barrier 状态保持，显式 release mask 后恢复 READY |
++| M2-11、12 | DONE 有 outstanding 时保持，清零后才能退休并统计完成 |
++| M2-13 | ID 重用、架构初始化、counter 清零、无有效旧 Wait 继承 |
++| M2-14 | 分配/完成统计，最后一次安全退休后 Kernel done，连续 Kernel |
++| M2-15 | M1 六 Pattern 与 Legacy UOP coverage 全部 PASS |
++
++额外检查：非 2 的幂 Context 数、非法 ID/kind、非 resident 事件、零 amount、
++错误状态 Commit、停顿锁定时异步复位、运行中带 Wait/issued 状态的异步复位，
++以及 Workgroup ID 从 65535 进入 65536。
++
++两个边界场景采用 **仅在 TB 中的 backdoor deposit**：WG 边界场景跳过已经完成的
++前缀，真实运行跨边界的尾段；multi-hot wakeup 场景构造多个已满足的 counter
++快照，检查 wake mask 同时被两个模块消费。M2 的生产接口仍只有单 completion
++event port，常规逐次 completion 通过正常接口测试。RTL 没有加入测试旁路。
++VCS 编译使用 `$deposit`，避免 TB 成为 `always_ff` 寄存器的第二个过程驱动。
++Icarus 的 `vpiMemoryWord` 不支持 deposit，只有其补充运行入口通过
++`M2_IVERILOG` 宏启用 counter snapshot 的直接赋值替代；该分支不编入 VCS。
++
++没有重新执行单模块测试。上传的 `tb_wave_dependency_tracker.sv` 保留，但不在
++本次 M2 TB filelist 中。
++
++## 静态检查和 M1 结果
++
++Preflight、Shell/Python 语法和 Make 入口检查通过。Slang 12 全 RTL/TB
++展开检查：M2 0 errors / 258 warnings，M1 0 errors / 24 warnings。
++警告主要涉及整数参考模型、扫描索引和位宽间的符号/宽度转换；完整诊断
++保存在 `logs/m2_slang_final.log` 与 `logs/m1_slang_final.log`。
++
++M1 实际仿真结果：mat_add、partial_block、mat_mul、divergence、bank_conflict、
++zero_thread 全部 PASS；Legacy UOP opcode 0–9/F coverage PASS。
++证据：`logs/m1_regression.log`。Icarus 在旧 M1 的 unpacked port 处理处发生工具
++内部异常，因此 M1 使用 Verilator 运行，未修改 Legacy RTL 绕过该异常。
++
++## VCS2016 + Verdi2016 最终验收入口
++
++使用原有工具环境，`vcs` 和 `verdi` 在 PATH 中；`NOVAS_HOME` 或 `VERDI_HOME`
++指向 Verdi2016。脚本检测 `share/PLI/VCS/LINUX64/novas.tab` 与 `pli.a` 后启用 FSDB。
++
++```bash
++make preflight
++make m2
++make m2_verdi
++make m2_vcs_matrix
++make sim
++make verdi
++```
++
++`make m2_vcs_matrix` 执行同一组 8 个配置；每次必须有完整 PASS 签名，失败立即
++停止。日志存于 `logs/m2_vcs_n<N>_wg<P>*.log`，矩阵总结为
++`logs/m2_vcs_matrix.log`。每组 FSDB 单独保存，默认配置由 `make m2_verdi` 打开。
++其他配置例如：
++
++```bash
++./scripts/run_m2_vcs.sh 3 64
++./scripts/open_m2_verdi.sh 3 64
++```
++
++当前附带的 VCD 是已通过的 **N=4、WG=97** 回归波形：
++`waves/tinygpu_m2_n4_wg97.vcd`；它不代表已经生成 Verdi2016 FSDB。
++
++下一阶段是 M3：真实 Wave-tagged Fetch/Decode/Execute、架构寄存器与 Scoreboard，
++接入本 Top 的 launch/commit 接口。真实访存、完整 Barrier 和 Tensor 数据通路
++仍按 M4/M5/M6 计划推进。
+--- a/Makefile
++++ b/Makefile
+@@ -36,3 +36,18 @@
+ clean:
+ 	rm -rf build/simv build/simv.daidir
+ 	find build logs waves -mindepth 1 -maxdepth 1 -type f -delete
++
++# M2 control-plane verification (independent of Legacy gpu_top).
++.PHONY: m2 m2_vcs_matrix m2_verdi m2_iverilog m2_matrix m1_verilator
++m2:
++	./scripts/run_m2_vcs.sh
++m2_vcs_matrix:
++	./scripts/run_m2_vcs_matrix.sh
++m2_verdi:
++	./scripts/open_m2_verdi.sh
++m2_iverilog:
++	python3 scripts/run_m2_iverilog.py
++m2_matrix:
++	python3 scripts/run_m2_iverilog.py --matrix
++m1_verilator:
++	python3 scripts/run_m1_verilator.py
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# TinyGPU M1 CDNA5 upgrade baseline
++# TinyGPU M1 baseline and M2 Wave control subsystem
+ 
+ This package integrates the current rewritten TinyGPU RTL as a synthesizable
+ single-Core baseline and keeps all verification code in a separate directory.
+@@ -114,3 +114,47 @@
+ 
+ Reference-model success is useful for validating Pattern encoding and expected
+ results, but it does not replace the VCS RTL simulation.
++
++## M2 stage: final platform VCS2016 + Verdi2016
++
++`rtl/wave_control_subsystem.sv` connects the five completed M2 control modules.
++It has no additional registers. M2 uses separate RTL/TB filelists; the Legacy
++M1 `gpu_top.sv` and its existing run commands remain available.
++
++Use your existing VCS2016/Verdi2016 environment. Set `NOVAS_HOME` or
++`VERDI_HOME` to the Verdi2016 installation that contains
++`share/PLI/VCS/LINUX64/novas.tab` and `pli.a` to enable FSDB.
++
++```bash
++make preflight
++make m2             # N=4, 64 threads per Workgroup; VCS2016
++make m2_verdi       # matching FSDB; Verdi2016
++make m2_vcs_matrix  # all 8 parameter configurations; VCS2016
++make sim            # M1 six Patterns and Legacy UOP checker; VCS2016
++make verdi          # M1 FSDB; Verdi2016
++```
++
++For another configuration, use matching arguments for simulation and viewing:
++
++```bash
++./scripts/run_m2_vcs.sh 3 64
++./scripts/open_m2_verdi.sh 3 64
++```
++
++M2 compile/runtime logs are named `logs/m2_vcs_n<N>_wg<P>_*.log` and
++`logs/m2_vcs_n<N>_wg<P>.log`. Each configuration keeps its own FSDB:
++`waves/tinygpu_m2_n<N>_wg<P>.fsdb`. The matrix stops at the first failure and
++requires a complete PASS signature from every run.
++
++The supplied `logs/m2_results.json` records the completed Icarus 12.0 M2
++regression. `logs/m1_regression.log` records the completed Verilator 5.020
++M1 regression. VCS2016 and Verdi2016 were unavailable in this execution
++environment; their compile, simulation and waveform acceptance remain to be
++run on the final platform. See `M2_STAGE_REPORT.md` for scope and evidence.
++
++Optional supplementary commands, with these tools installed:
++
++```bash
++make m2_matrix      # Icarus, same 8 M2 configurations
++make m1_verilator  # Verilator 5 with timing support, M1
++```
+--- a/VALIDATION_REPORT.md
++++ b/VALIDATION_REPORT.md
+@@ -1,4 +1,19 @@
+ # TinyGPU M1 validation report
++
++## 2026-10-03 baseline_1003 stage update
++
++The M1 RTL regression was actually executed here with **Verilator 5.020**:
++all six Patterns and Legacy UOP opcode coverage 0-9/F passed. The transcript
++is `logs/m1_regression.log`, and the compile log is
++`logs/m1_verilator_compile.log`. No Legacy execution RTL was changed for M2.
++
++The final acceptance platform remains **VCS2016 + Verdi2016**. Those tools
++were not available here, so this result is supplementary RTL evidence and
++does not claim a VCS2016 run. Rerun `make sim` and `make verdi` there.
++
++The original sections below retain the M1 design and earlier review record.
++For the completed M2 subsystem, eight-configuration regression, fixes and
++remaining platform acceptance, see `M2_STAGE_REPORT.md`.
+ 
+ ## Baseline scope
+ 
+--- a/rtl/gpu_pkg.sv
++++ b/rtl/gpu_pkg.sv
+@@ -97,7 +97,9 @@
+ localparam int CDNA_TRANSACTION_BITS   = 8;
+ localparam int CDNA_WAIT_COUNTER_BITS  = 6;
+ 
+-localparam int CDNA_WORKGROUP_ID_BITS       = 16;
++// A 32-bit launch count can need more than 65536 Workgroups. Keep the ID
++// wide enough for any default-width one-dimensional launch, including WG=1.
++localparam int CDNA_WORKGROUP_ID_BITS       = 32;
+ localparam int CDNA_WORKGROUP_WAVE_ID_BITS  = 5;
+ localparam int CDNA_WORKGROUP_WAVE_COUNT_BITS = 6;
+ localparam int CDNA_GLOBAL_THREAD_ID_BITS   = 32;
+--- /dev/null
++++ b/rtl/wave_control_subsystem.sv
+@@ -0,0 +1,264 @@
++`default_nettype none
++`timescale 1ns/1ns
++
++// ============================================================================
++// TinyGPU M2 Wave Control Subsystem
++// ============================================================================
++//
++// Function
++// -----------------------------------------------------------------------------
++// Structural integration of the five M2 control modules: Dispatcher, Context
++// Table, Scheduler, Dependency Tracker and Retire Controller. This module owns
++// no registers, counters, lifecycle state or instruction execution logic.
++//
++// Microarchitecture and event wiring
++// -----------------------------------------------------------------------------
++// alloc_fire = Dispatcher alloc_valid & Context Table alloc_ready.
++// The table selects alloc_wave_id; the same handshake initializes the Tracker.
++// schedule_fire = Scheduler selected_valid & execution-port selected_ready.
++// The Scheduler ID also selects the Context Table's combinational read port.
++// wait_wakeup_mask = waitcnt_mask & wait_satisfied_mask. Both the Context Table
++// and Tracker consume this mask, changing WAITCNT to READY and clearing active
++// Wait state on the same edge.
++// Retire Controller selects one DONE entry with all seven counters zero.
++// Its release goes to the table and Tracker; its completion goes to Dispatcher.
++//
++// Execution and backend interfaces
++// -----------------------------------------------------------------------------
++// selected_valid/ready and selected_* form the Wave launch interface. Payload
++// is consumed only with selected_valid=1; selected_context_valid reports raw
++// Context residency and does not create another handshake.
++// commit_* is produced by the Wave-tagged execution path. It owns next-state
++// selection and architectural write enables. M2 tests supply synthetic events.
++// For a Wait commit, the producer supplies wait_arm_valid and the matching ID
++// on the same edge as commit_valid, and chooses commit_next_state as READY when
++// wait_arm_satisfied=1, otherwise WAITCNT. Wait arm valid must not depend on
++// wait_arm_satisfied. This wrapper neither decodes nor generates commits.
++// Backend request acceptance supplies dependency_issue_* independently of
++// schedule_fire. Completion uses the Wave ID retained by the original request.
++// barrier_release_mask is external in M2; the Workgroup controller arrives in M5.
++//
++// Timing and reset
++// -----------------------------------------------------------------------------
++// Scalar events are levels sampled once per rising edge. Consecutive asserted
++// edges represent consecutive events. Release has no backpressure port.
++// Child storage has asynchronous active-low reset. This wrapper passes rst_n
++// through and adds no combinational reset gates. The system suppresses external
++// events during reset. Allocation does not bypass a same-edge retirement.
++//
++// Observation ports and verification
++// -----------------------------------------------------------------------------
++// State masks, handshake events and retirement identity are exposed to the M2
++// checker. They are wires from the child modules, without duplicated state.
++// All Wave IDs identify resident Context slots, not Workgroup-local indices.
++// Counter widths/kinds and lifecycle encodings are defined by gpu_pkg.
++// Compile gpu_pkg.sv before the five child modules and this integration module.
++// ============================================================================
++module wave_control_subsystem #(
++    parameter int NUM_WAVE_CONTEXTS = gpu_pkg::CDNA_NUM_RESIDENT_WAVES,
++    parameter int THREAD_COUNT_BITS = gpu_pkg::CDNA_THREAD_COUNT_BITS,
++    parameter int PC_BITS = gpu_pkg::CDNA_PC_BITS,
++    parameter int EXEC_BITS = gpu_pkg::CDNA_EXEC_BITS,
++    parameter int VCC_BITS = gpu_pkg::CDNA_VCC_BITS,
++    parameter int DATA_BITS = gpu_pkg::CDNA_DATA_BITS,
++    parameter int WAVE_SIZE = gpu_pkg::CDNA_WAVE_SIZE,
++    parameter int THREADS_PER_WORKGROUP = gpu_pkg::CDNA_THREADS_PER_WORKGROUP,
++    parameter int WORKGROUP_ID_BITS = gpu_pkg::CDNA_WORKGROUP_ID_BITS,
++    parameter int WG_WAVE_ID_BITS = gpu_pkg::CDNA_WORKGROUP_WAVE_ID_BITS,
++    parameter int WG_WAVE_COUNT_BITS = gpu_pkg::CDNA_WORKGROUP_WAVE_COUNT_BITS,
++    parameter int GLOBAL_THREAD_ID_BITS = gpu_pkg::CDNA_GLOBAL_THREAD_ID_BITS,
++    parameter int WAVE_ID_BITS =
++        (NUM_WAVE_CONTEXTS > 1) ? $clog2(NUM_WAVE_CONTEXTS) : 1
++) (
++    input logic clk,
++    input logic rst_n,
++
++    // Kernel launch, accepted by Dispatcher while idle.
++    input logic start,
++    input logic [PC_BITS-1:0] start_pc,
++    input logic [THREAD_COUNT_BITS-1:0] thread_count,
++    output logic busy,
++    output logic done,
++
++    // Wave launch to the execution path.
++    output logic selected_valid,
++    input logic selected_ready,
++    output logic [WAVE_ID_BITS-1:0] selected_wave_id,
++    output logic selected_context_valid,
++    output gpu_pkg::wave_context_state_t selected_state,
++    output logic [PC_BITS-1:0] selected_pc,
++    output logic [EXEC_BITS-1:0] selected_exec,
++    output logic [VCC_BITS-1:0] selected_vcc,
++    output logic selected_scc,
++    output logic [DATA_BITS-1:0] selected_m0,
++    output logic [WORKGROUP_ID_BITS-1:0] selected_workgroup_id,
++    output logic [WG_WAVE_ID_BITS-1:0] selected_wave_index,
++    output logic [WG_WAVE_COUNT_BITS-1:0] selected_waves_in_workgroup,
++    output logic [GLOBAL_THREAD_ID_BITS-1:0] selected_global_thread_base,
++
++    // Architectural commit from execution; one event per edge.
++    input logic commit_valid,
++    input logic [WAVE_ID_BITS-1:0] commit_wave_id,
++    input gpu_pkg::wave_context_state_t commit_next_state,
++    input logic commit_pc_write_enable,
++    input logic [PC_BITS-1:0] commit_pc,
++    input logic commit_exec_write_enable,
++    input logic [EXEC_BITS-1:0] commit_exec,
++    input logic commit_vcc_write_enable,
++    input logic [VCC_BITS-1:0] commit_vcc,
++    input logic commit_scc_write_enable,
++    input logic commit_scc,
++    input logic commit_m0_write_enable,
++    input logic [DATA_BITS-1:0] commit_m0,
++
++    // Accepted backend work and asynchronous completion.
++    input logic dependency_issue_valid,
++    input logic [WAVE_ID_BITS-1:0] dependency_issue_wave_id,
++    input gpu_pkg::dependency_kind_t dependency_issue_kind,
++    input logic [gpu_pkg::DEPENDENCY_AMOUNT_BITS-1:0] dependency_issue_amount,
++    input logic dependency_complete_valid,
++    input logic [WAVE_ID_BITS-1:0] dependency_complete_wave_id,
++    input gpu_pkg::dependency_kind_t dependency_complete_kind,
++    input logic [gpu_pkg::DEPENDENCY_AMOUNT_BITS-1:0] dependency_complete_amount,
++
++    // Wait query/configuration, concurrent with the corresponding Wait commit.
++    input logic wait_arm_valid,
++    input logic [WAVE_ID_BITS-1:0] wait_arm_wave_id,
++    input logic [gpu_pkg::DEPENDENCY_COUNTER_COUNT-1:0] wait_counter_mask,
++    input logic [gpu_pkg::CDNA_LOAD_COUNTER_BITS-1:0] wait_load_threshold,
++    input logic [gpu_pkg::CDNA_STORE_COUNTER_BITS-1:0] wait_store_threshold,
++    input logic [gpu_pkg::CDNA_DS_COUNTER_BITS-1:0] wait_ds_threshold,
++    input logic [gpu_pkg::CDNA_KM_COUNTER_BITS-1:0] wait_km_threshold,
++    input logic [gpu_pkg::CDNA_ASYNC_COUNTER_BITS-1:0] wait_async_threshold,
++    input logic [gpu_pkg::CDNA_TENSOR_COUNTER_BITS-1:0] wait_tensor_threshold,
++    input logic [gpu_pkg::CDNA_X_COUNTER_BITS-1:0] wait_x_threshold,
++    output logic wait_arm_satisfied,
++
++    // M2 Barrier placeholder, later driven by the Barrier Controller.
++    input logic [NUM_WAVE_CONTEXTS-1:0] barrier_release_mask,
++
++    // Observation ports for stage verification and later system integration.
++    output logic [NUM_WAVE_CONTEXTS-1:0] free_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] resident_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] ready_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] issued_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] waitcnt_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] barrier_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] done_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] wait_satisfied_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] wait_wakeup_mask,
++    output logic [NUM_WAVE_CONTEXTS-1:0] all_counters_zero_mask,
++    output logic alloc_fire,
++    output logic [WAVE_ID_BITS-1:0] alloc_wave_id,
++    output logic schedule_fire,
++    output logic retire_fire,
++    output logic [WAVE_ID_BITS-1:0] retire_wave_id
++);
++    logic alloc_valid;
++    logic alloc_ready;
++    logic [PC_BITS-1:0] alloc_start_pc;
++    logic [EXEC_BITS-1:0] alloc_initial_exec;
++    logic [WORKGROUP_ID_BITS-1:0] alloc_workgroup_id;
++    logic [WG_WAVE_ID_BITS-1:0] alloc_wave_index;
++    logic [WG_WAVE_COUNT_BITS-1:0] alloc_waves_in_workgroup;
++    logic [GLOBAL_THREAD_ID_BITS-1:0] alloc_global_thread_base;
++    logic wave_completed;
++
++    assign alloc_fire = alloc_valid && alloc_ready;
++    assign schedule_fire = selected_valid && selected_ready;
++    assign wait_wakeup_mask = waitcnt_mask & wait_satisfied_mask;
++
++    wave_dispatcher #(
++        .THREAD_COUNT_BITS(THREAD_COUNT_BITS), .PC_BITS(PC_BITS),
++        .EXEC_BITS(EXEC_BITS), .WAVE_SIZE(WAVE_SIZE),
++        .THREADS_PER_WORKGROUP(THREADS_PER_WORKGROUP),
++        .WORKGROUP_ID_BITS(WORKGROUP_ID_BITS), .WG_WAVE_ID_BITS(WG_WAVE_ID_BITS),
++        .WG_WAVE_COUNT_BITS(WG_WAVE_COUNT_BITS),
++        .GLOBAL_THREAD_ID_BITS(GLOBAL_THREAD_ID_BITS)
++    ) u_dispatcher (
++        .clk(clk), .rst_n(rst_n), .start(start), .start_pc(start_pc),
++        .thread_count(thread_count), .busy(busy), .done(done),
++        .wave_completed(wave_completed),
++        .alloc_valid(alloc_valid), .alloc_ready(alloc_ready),
++        .alloc_start_pc(alloc_start_pc), .alloc_initial_exec(alloc_initial_exec),
++        .alloc_workgroup_id(alloc_workgroup_id), .alloc_wave_index(alloc_wave_index),
++        .alloc_waves_in_workgroup(alloc_waves_in_workgroup),
++        .alloc_global_thread_base(alloc_global_thread_base)
++    );
++
++    wave_context_table #(
++        .NUM_WAVE_CONTEXTS(NUM_WAVE_CONTEXTS), .WAVE_ID_BITS(WAVE_ID_BITS),
++        .PC_BITS(PC_BITS), .EXEC_BITS(EXEC_BITS), .VCC_BITS(VCC_BITS),
++        .DATA_BITS(DATA_BITS), .WORKGROUP_ID_BITS(WORKGROUP_ID_BITS),
++        .WG_WAVE_ID_BITS(WG_WAVE_ID_BITS), .WG_WAVE_COUNT_BITS(WG_WAVE_COUNT_BITS),
++        .GLOBAL_THREAD_ID_BITS(GLOBAL_THREAD_ID_BITS)
++    ) u_context_table (
++        .clk(clk), .rst_n(rst_n),
++        .alloc_valid(alloc_valid), .alloc_ready(alloc_ready), .alloc_wave_id(alloc_wave_id),
++        .alloc_start_pc(alloc_start_pc), .alloc_initial_exec(alloc_initial_exec),
++        .alloc_workgroup_id(alloc_workgroup_id), .alloc_wave_index(alloc_wave_index),
++        .alloc_waves_in_workgroup(alloc_waves_in_workgroup),
++        .alloc_global_thread_base(alloc_global_thread_base),
++        .issue_valid(schedule_fire), .issue_wave_id(selected_wave_id),
++        .commit_valid(commit_valid), .commit_wave_id(commit_wave_id),
++        .commit_next_state(commit_next_state),
++        .commit_pc_write_enable(commit_pc_write_enable), .commit_pc(commit_pc),
++        .commit_exec_write_enable(commit_exec_write_enable), .commit_exec(commit_exec),
++        .commit_vcc_write_enable(commit_vcc_write_enable), .commit_vcc(commit_vcc),
++        .commit_scc_write_enable(commit_scc_write_enable), .commit_scc(commit_scc),
++        .commit_m0_write_enable(commit_m0_write_enable), .commit_m0(commit_m0),
++        .wait_wakeup_mask(wait_wakeup_mask), .barrier_release_mask(barrier_release_mask),
++        .release_valid(retire_fire), .release_wave_id(retire_wave_id),
++        .read_wave_id(selected_wave_id), .read_valid(selected_context_valid),
++        .read_state(selected_state), .read_pc(selected_pc), .read_exec(selected_exec),
++        .read_vcc(selected_vcc), .read_scc(selected_scc), .read_m0(selected_m0),
++        .read_workgroup_id(selected_workgroup_id), .read_wave_index(selected_wave_index),
++        .read_waves_in_workgroup(selected_waves_in_workgroup),
++        .read_global_thread_base(selected_global_thread_base),
++        .free_mask(free_mask), .resident_mask(resident_mask), .ready_mask(ready_mask),
++        .issued_mask(issued_mask), .waitcnt_mask(waitcnt_mask),
++        .barrier_mask(barrier_mask), .done_mask(done_mask)
++    );
++
++    wave_scheduler #(
++        .NUM_WAVE_CONTEXTS(NUM_WAVE_CONTEXTS), .WAVE_ID_BITS(WAVE_ID_BITS)
++    ) u_scheduler (
++        .clk(clk), .rst_n(rst_n), .ready_mask(ready_mask),
++        .selected_valid(selected_valid), .selected_ready(selected_ready),
++        .selected_wave_id(selected_wave_id)
++    );
++
++    wave_dependency_tracker #(
++        .NUM_WAVE_CONTEXTS(NUM_WAVE_CONTEXTS), .WAVE_ID_BITS(WAVE_ID_BITS)
++    ) u_dependency_tracker (
++        .clk(clk), .rst_n(rst_n), .resident_mask(resident_mask),
++        .alloc_fire(alloc_fire), .alloc_wave_id(alloc_wave_id),
++        .release_valid(retire_fire), .release_wave_id(retire_wave_id),
++        .dependency_issue_valid(dependency_issue_valid),
++        .dependency_issue_wave_id(dependency_issue_wave_id),
++        .dependency_issue_kind(dependency_issue_kind),
++        .dependency_issue_amount(dependency_issue_amount),
++        .dependency_complete_valid(dependency_complete_valid),
++        .dependency_complete_wave_id(dependency_complete_wave_id),
++        .dependency_complete_kind(dependency_complete_kind),
++        .dependency_complete_amount(dependency_complete_amount),
++        .wait_arm_valid(wait_arm_valid), .wait_arm_wave_id(wait_arm_wave_id),
++        .wait_counter_mask(wait_counter_mask),
++        .wait_load_threshold(wait_load_threshold), .wait_store_threshold(wait_store_threshold),
++        .wait_ds_threshold(wait_ds_threshold), .wait_km_threshold(wait_km_threshold),
++        .wait_async_threshold(wait_async_threshold), .wait_tensor_threshold(wait_tensor_threshold),
++        .wait_x_threshold(wait_x_threshold), .wait_arm_satisfied(wait_arm_satisfied),
++        .wait_wakeup_mask(wait_wakeup_mask), .wait_satisfied_mask(wait_satisfied_mask),
++        .all_counters_zero_mask(all_counters_zero_mask)
++    );
++
++    wave_retire_controller #(
++        .NUM_WAVE_CONTEXTS(NUM_WAVE_CONTEXTS), .WAVE_ID_BITS(WAVE_ID_BITS)
++    ) u_retire_controller (
++        .done_mask(done_mask), .all_counters_zero_mask(all_counters_zero_mask),
++        .release_valid(retire_fire), .release_wave_id(retire_wave_id),
++        .wave_completed(wave_completed)
++    );
++endmodule
++
++`default_nettype wire
+--- a/rtl/wave_retire_controller.sv
++++ b/rtl/wave_retire_controller.sv
+@@ -2,7 +2,7 @@
+ `timescale 1ns/1ns
+ 
+ // ============================================================================
+-// TinyGPU M2 Wave Retire Controller -- interface / RTL exercise scaffold
++// TinyGPU M2 Wave Retire Controller
+ // ============================================================================
+ //
+ // Function
+@@ -60,9 +60,7 @@
+ //
+ // Implementation status
+ // -----------------------------------------------------------------------------
+-// Interface and declarations are supplied below. Mask combination is provided;
+-// the learner writes the fixed-priority selection block at the TODO.
+-// release_valid/release_wave_id are undriven until that block is implemented.
++// Complete M2 fixed-priority retirement selector.
+ // Compile gpu_pkg.sv first.
+ // ============================================================================
+ module wave_retire_controller #(
+@@ -92,9 +90,17 @@
+ 
+     assign retire_eligible_mask = done_mask & all_counters_zero_mask;
+ 
+-    // TODO: Write always_comb to select the first eligible Context entry.
+-    // Default release_valid and release_wave_id to zero before the scan.
+-    // Scan IDs 0..NUM_WAVE_CONTEXTS-1 and preserve the first match.
++    always_comb begin
++        release_valid = '0;
++        release_wave_id = '0;
++        for (retire_scan_comb = 0; retire_scan_comb < NUM_WAVE_CONTEXTS;
++             retire_scan_comb = retire_scan_comb + 1) begin
++            if (retire_eligible_mask[retire_scan_comb] && !release_valid) begin
++                release_valid = 1'b1;
++                release_wave_id = retire_scan_comb[WAVE_ID_BITS-1:0];
++            end
++        end
++    end
+ 
+     assign wave_completed = release_valid;
+ 
+--- /dev/null
++++ b/rtl/wave_scheduler.sv
+@@ -0,0 +1,303 @@
++// ============================================================================
++// TinyGPU M2 Wave Scheduler
++// ============================================================================
++//
++// Function
++// -----------------------------------------------------------------------------
++// This module selects one READY resident Wave and presents its wave_id to the
++// execution port through a valid/ready handshake.
++//
++// Selection uses Round-Robin arbitration. A successful handshake advances the
++// Round-Robin pointer to the entry immediately following the accepted Wave.
++//
++// If the execution port applies backpressure, the Scheduler saves the selected
++// Wave ID and keeps the selection stable until it is accepted.
++//
++// This module does not own Wave lifecycle state, architectural registers,
++// dependency counters or Kernel dispatch information.
++//
++// Microarchitecture
++// -----------------------------------------------------------------------------
++//
++// The Scheduler contains three functional parts:
++//
++// 1. Round-Robin candidate selection
++//    - Inputs: ready_mask and round_robin_pointer.
++//    - Scans all Context entries in circular order.
++//    - Selects the first READY entry.
++//    - Produces candidate_valid and candidate_wave_id.
++//
++// 2. Selected-Wave output selection
++//    - When locked, outputs the saved locked_wave_id.
++//    - Otherwise, outputs the current Round-Robin candidate.
++//    - Outputs an invalid selection when no candidate exists.
++//
++// 3. Round-Robin and backpressure registers
++//    - round_robin_pointer stores the next scan starting point.
++//    - locked records whether a selection is waiting for acceptance.
++//    - locked_wave_id stores the Wave ID held during backpressure.
++//
++// Wave ID meaning
++// -----------------------------------------------------------------------------
++//
++// selected_wave_id identifies an entry in wave_context_table.
++//
++// It is not the Wave's index inside its Workgroup. The Context entry stores
++// the Workgroup ID, Workgroup-local Wave index and other dispatch metadata.
++//
++// Scheduler interface
++// -----------------------------------------------------------------------------
++//
++// Signal              Meaning
++// ------------------  --------------------------------------------------------
++// ready_mask          One bit per resident Context entry.
++//                     Bit N is 1 when Context entry N is READY.
++//
++// selected_valid      A valid Wave selection is being presented.
++//
++// selected_ready      The execution port can accept the presented Wave.
++//
++// selected_wave_id    Context entry selected for execution.
++//
++// clk                 Clock used to accept selections and update registers.
++//
++// rst_n               Asynchronous active-low reset.
++//
++// ready_mask is supplied by wave_context_table. selected_ready is supplied by
++// the execution port.
++//
++// The selected Wave ID is also connected to the Context Table's read port so
++// the execution port can obtain that Wave's architectural context.
++//
++// Allocation and scheduling are separate operations. This module schedules
++// already allocated resident Waves; it does not allocate FREE entries.
++//
++// Scheduling handshake
++// -----------------------------------------------------------------------------
++//
++//     schedule_fire = selected_valid && selected_ready
++//
++// A scheduling transfer occurs on a rising clock edge when schedule_fire is 1.
++//
++// The control subsystem sends this event to wave_context_table as issue_valid,
++// together with selected_wave_id as issue_wave_id.
++//
++// The accepted Context entry then changes:
++//
++//     WAVE_STATE_READY -> WAVE_STATE_ISSUED
++//
++// The Scheduler does not directly write the Context state.
++//
++// selected_valid and selected_ready are level signals. If both remain high
++// over consecutive clock edges, one scheduling transfer occurs on each edge.
++//
++// Round-Robin candidate selection
++// -----------------------------------------------------------------------------
++//
++// The scan starts at round_robin_pointer and visits every entry once.
++//
++// For each scan position:
++//
++//     index = round_robin_pointer + scan_offset
++//
++// If index reaches NUM_WAVE_CONTEXTS, subtract NUM_WAVE_CONTEXTS to wrap around.
++//
++// The first entry whose ready_mask bit is 1 becomes the candidate. Later READY
++// entries must not overwrite that candidate.
++//
++// Example:
++//
++//     NUM_WAVE_CONTEXTS = 4
++//     ready_mask        = 4'b1011
++//     pointer           = 2
++//
++// Scan order:
++//
++//     2, 3, 0, 1
++//
++// Entry 2 is not READY. Entry 3 is READY, so the selected candidate is Wave 3.
++//
++// If no entry is READY:
++//
++//     candidate_valid   = 0
++//     candidate_wave_id = 0
++//
++// Pointer update
++// -----------------------------------------------------------------------------
++//
++// The pointer changes only when schedule_fire is 1.
++//
++// The next pointer is the entry following selected_wave_id:
++//
++//     accepted ID 0 -> pointer 1
++//     accepted ID 1 -> pointer 2
++//     accepted ID 2 -> pointer 3
++//     accepted ID 3 -> pointer 0
++//
++// This is based on the accepted Wave ID, not simply the previous pointer + 1.
++//
++// Explicit wraparound must also support non-power-of-two Context counts.
++// For NUM_WAVE_CONTEXTS == 1, the pointer remains 0.
++//
++// Backpressure and selection locking
++// -----------------------------------------------------------------------------
++//
++// When:
++//
++//     selected_valid = 1
++//     selected_ready = 0
++//
++// the selected Wave ID must remain stable until acceptance.
++//
++// On the first stalled rising edge, the Scheduler saves the selected ID and
++// sets locked. While locked, newly READY Waves cannot replace that selection.
++//
++// A successful scheduling handshake clears locked and advances the pointer.
++//
++// The Context Table must keep the selected entry READY until schedule_fire.
++// Its READY -> ISSUED transition occurs only when the selection is accepted.
++//
++// Register update rules
++// -----------------------------------------------------------------------------
++//
++// Condition                         Action
++// --------------------------------  ------------------------------------------
++// Reset                             Clear pointer and lock information.
++// No valid selection                Hold pointer; remain unlocked.
++// Valid selection, not accepted     Save selection and lock it.
++// Locked selection, not accepted    Hold pointer and saved selection.
++// Successful handshake              Advance pointer and clear lock.
++//
++// Reset behavior
++// -----------------------------------------------------------------------------
++//
++// rst_n is asynchronous and active-low.
++//
++// On reset:
++//
++// - round_robin_pointer = 0;
++// - locked              = 0;
++// - locked_wave_id      = 0;
++// The Context Table resets ready_mask to zero in the integrated subsystem.
++// With no candidates and the lock cleared, selected_valid, selected_wave_id
++// and schedule_fire settle to zero. There is no combinational reset gate.
++//
++// Verification requirements
++// -----------------------------------------------------------------------------
++//
++// The verification environment checks:
++//
++// - Every accepted Wave was READY before the accepting clock edge.
++// - Selection remains stable while valid is high and ready is low.
++// - The pointer changes only on schedule_fire.
++// - The pointer wraps correctly.
++// - No selection is issued when no READY Wave exists.
++// - With continued downstream acceptance, persistently READY Waves are served.
++// - Reset discards any previously locked selection.
++//
++// Module summary and future upgrades
++// -----------------------------------------------------------------------------
++//
++// M2 provides a single-port Round-Robin Scheduler for resident READY Waves.
++//
++// It separates selection from Context ownership and preserves the selected
++// payload during execution-port backpressure.
++//
++// Later milestones may add execution-class eligibility, dependency-aware
++// candidate masks or several issue ports. Wave architectural state remains
++// owned by the Context Table and related state-storage modules.
++// ============================================================================
++module wave_scheduler #(
++    parameter int NUM_WAVE_CONTEXTS =
++        gpu_pkg::CDNA_NUM_RESIDENT_WAVES,
++
++    parameter int WAVE_ID_BITS =
++        (NUM_WAVE_CONTEXTS > 1) ?
++        $clog2(NUM_WAVE_CONTEXTS) : 1
++) (
++    input  logic                         clk,
++    input  logic                         rst_n,
++
++    input  logic [NUM_WAVE_CONTEXTS-1:0] ready_mask,
++
++    output logic                         selected_valid,
++    input  logic                         selected_ready,
++    output logic [WAVE_ID_BITS-1:0]      selected_wave_id
++);
++
++    // Round-Robin扫描起点
++    logic [WAVE_ID_BITS-1:0] round_robin_pointer;
++	logic [WAVE_ID_BITS-1:0] round_robin_pointer_nxt;
++    // 背压期间保存选中的Wave
++    logic                    locked;
++    logic [WAVE_ID_BITS-1:0] locked_wave_id;
++
++    // 当前Round-Robin组合仲裁结果
++    logic                    candidate_valid;
++    logic [WAVE_ID_BITS-1:0] candidate_wave_id;
++
++    // 当前选择被执行端接受
++    logic schedule_fire;
++
++    // 组合扫描变量
++    integer scan_comb;
++    integer index_comb;
++
++    // Round-Robin pointer, selection and backpressure lock.
++always_ff @(posedge clk or negedge rst_n)begin
++	if(!rst_n)
++		round_robin_pointer <= '0;
++	else 
++		round_robin_pointer <= round_robin_pointer_nxt;
++end
++
++
++assign 	round_robin_pointer_nxt = 
++		(schedule_fire && selected_wave_id == NUM_WAVE_CONTEXTS-1) ?
++		'0 : schedule_fire ? 
++		(selected_wave_id + 1'b1): round_robin_pointer;
++
++
++always_comb begin
++	candidate_valid = '0;
++	candidate_wave_id = '0;
++	for (scan_comb = 0; scan_comb < NUM_WAVE_CONTEXTS ; scan_comb = scan_comb +1)begin
++		index_comb = scan_comb + round_robin_pointer;
++		if (index_comb >= NUM_WAVE_CONTEXTS)
++			index_comb = index_comb - NUM_WAVE_CONTEXTS;
++		if( ready_mask[index_comb] == 1'b1&&!candidate_valid)begin
++			candidate_valid = 1'b1;
++			candidate_wave_id = index_comb;
++		end
++	end
++
++end	
++always_comb begin
++    selected_valid   = '0;
++    selected_wave_id = '0;
++
++    if (locked) begin
++        selected_valid   = 1'b1;
++        selected_wave_id = locked_wave_id;
++    end
++    else if (candidate_valid) begin
++        selected_valid   = 1'b1;
++        selected_wave_id = candidate_wave_id;
++    end
++end
++assign schedule_fire = selected_valid && selected_ready;
++
++always_ff @(posedge clk or negedge rst_n)begin
++	if (!rst_n)begin
++		locked <= '0;
++		locked_wave_id <= '0;
++	end
++	else if (schedule_fire)
++		locked <='0;
++	else if (selected_valid && !selected_ready)begin
++		locked_wave_id <= selected_wave_id;
++		locked <= 1'b1;
++	end
++end
++
++endmodule
+--- a/rtl/wave_sheduler.sv
++++ /dev/null
+@@ -1,306 +0,0 @@
+-// ============================================================================
+-// TinyGPU M2 Wave Scheduler
+-// ============================================================================
+-//
+-// Function
+-// -----------------------------------------------------------------------------
+-// This module selects one READY resident Wave and presents its wave_id to the
+-// execution port through a valid/ready handshake.
+-//
+-// Selection uses Round-Robin arbitration. A successful handshake advances the
+-// Round-Robin pointer to the entry immediately following the accepted Wave.
+-//
+-// If the execution port applies backpressure, the Scheduler saves the selected
+-// Wave ID and keeps the selection stable until it is accepted.
+-//
+-// This module does not own Wave lifecycle state, architectural registers,
+-// dependency counters or Kernel dispatch information.
+-//
+-// Microarchitecture
+-// -----------------------------------------------------------------------------
+-//
+-// The Scheduler contains three functional parts:
+-//
+-// 1. Round-Robin candidate selection
+-//    - Inputs: ready_mask and round_robin_pointer.
+-//    - Scans all Context entries in circular order.
+-//    - Selects the first READY entry.
+-//    - Produces candidate_valid and candidate_wave_id.
+-//
+-// 2. Selected-Wave output selection
+-//    - When locked, outputs the saved locked_wave_id.
+-//    - Otherwise, outputs the current Round-Robin candidate.
+-//    - Outputs an invalid selection when no candidate exists.
+-//
+-// 3. Round-Robin and backpressure registers
+-//    - round_robin_pointer stores the next scan starting point.
+-//    - locked records whether a selection is waiting for acceptance.
+-//    - locked_wave_id stores the Wave ID held during backpressure.
+-//
+-// Wave ID meaning
+-// -----------------------------------------------------------------------------
+-//
+-// selected_wave_id identifies an entry in wave_context_table.
+-//
+-// It is not the Wave's index inside its Workgroup. The Context entry stores
+-// the Workgroup ID, Workgroup-local Wave index and other dispatch metadata.
+-//
+-// Scheduler interface
+-// -----------------------------------------------------------------------------
+-//
+-// Signal              Meaning
+-// ------------------  --------------------------------------------------------
+-// ready_mask          One bit per resident Context entry.
+-//                     Bit N is 1 when Context entry N is READY.
+-//
+-// selected_valid      A valid Wave selection is being presented.
+-//
+-// selected_ready      The execution port can accept the presented Wave.
+-//
+-// selected_wave_id    Context entry selected for execution.
+-//
+-// clk                 Clock used to accept selections and update registers.
+-//
+-// rst_n               Asynchronous active-low reset.
+-//
+-// ready_mask is supplied by wave_context_table. selected_ready is supplied by
+-// the execution port.
+-//
+-// The selected Wave ID is also connected to the Context Table's read port so
+-// the execution port can obtain that Wave's architectural context.
+-//
+-// Allocation and scheduling are separate operations. This module schedules
+-// already allocated resident Waves; it does not allocate FREE entries.
+-//
+-// Scheduling handshake
+-// -----------------------------------------------------------------------------
+-//
+-//     schedule_fire = selected_valid && selected_ready
+-//
+-// A scheduling transfer occurs on a rising clock edge when schedule_fire is 1.
+-//
+-// The control subsystem sends this event to wave_context_table as issue_valid,
+-// together with selected_wave_id as issue_wave_id.
+-//
+-// The accepted Context entry then changes:
+-//
+-//     WAVE_STATE_READY -> WAVE_STATE_ISSUED
+-//
+-// The Scheduler does not directly write the Context state.
+-//
+-// selected_valid and selected_ready are level signals. If both remain high
+-// over consecutive clock edges, one scheduling transfer occurs on each edge.
+-//
+-// Round-Robin candidate selection
+-// -----------------------------------------------------------------------------
+-//
+-// The scan starts at round_robin_pointer and visits every entry once.
+-//
+-// For each scan position:
+-//
+-//     index = round_robin_pointer + scan_offset
+-//
+-// If index reaches NUM_WAVE_CONTEXTS, subtract NUM_WAVE_CONTEXTS to wrap around.
+-//
+-// The first entry whose ready_mask bit is 1 becomes the candidate. Later READY
+-// entries must not overwrite that candidate.
+-//
+-// Example:
+-//
+-//     NUM_WAVE_CONTEXTS = 4
+-//     ready_mask        = 4'b1011
+-//     pointer           = 2
+-//
+-// Scan order:
+-//
+-//     2, 3, 0, 1
+-//
+-// Entry 2 is not READY. Entry 3 is READY, so the selected candidate is Wave 3.
+-//
+-// If no entry is READY:
+-//
+-//     candidate_valid   = 0
+-//     candidate_wave_id = 0
+-//
+-// Pointer update
+-// -----------------------------------------------------------------------------
+-//
+-// The pointer changes only when schedule_fire is 1.
+-//
+-// The next pointer is the entry following selected_wave_id:
+-//
+-//     accepted ID 0 -> pointer 1
+-//     accepted ID 1 -> pointer 2
+-//     accepted ID 2 -> pointer 3
+-//     accepted ID 3 -> pointer 0
+-//
+-// This is based on the accepted Wave ID, not simply the previous pointer + 1.
+-//
+-// Explicit wraparound must also support non-power-of-two Context counts.
+-// For NUM_WAVE_CONTEXTS == 1, the pointer remains 0.
+-//
+-// Backpressure and selection locking
+-// -----------------------------------------------------------------------------
+-//
+-// When:
+-//
+-//     selected_valid = 1
+-//     selected_ready = 0
+-//
+-// the selected Wave ID must remain stable until acceptance.
+-//
+-// On the first stalled rising edge, the Scheduler saves the selected ID and
+-// sets locked. While locked, newly READY Waves cannot replace that selection.
+-//
+-// A successful scheduling handshake clears locked and advances the pointer.
+-//
+-// The Context Table must keep the selected entry READY until schedule_fire.
+-// Its READY -> ISSUED transition occurs only when the selection is accepted.
+-//
+-// Register update rules
+-// -----------------------------------------------------------------------------
+-//
+-// Condition                         Action
+-// --------------------------------  ------------------------------------------
+-// Reset                             Clear pointer and lock information.
+-// No valid selection                Hold pointer; remain unlocked.
+-// Valid selection, not accepted     Save selection and lock it.
+-// Locked selection, not accepted    Hold pointer and saved selection.
+-// Successful handshake              Advance pointer and clear lock.
+-//
+-// Reset behavior
+-// -----------------------------------------------------------------------------
+-//
+-// rst_n is asynchronous and active-low.
+-//
+-// On reset:
+-//
+-// - round_robin_pointer = 0;
+-// - locked              = 0;
+-// - locked_wave_id      = 0;
+-// - selected_valid      = 0;
+-// - selected_wave_id    = 0;
+-// - schedule_fire       = 0.
+-//
+-// Verification requirements
+-// -----------------------------------------------------------------------------
+-//
+-// The verification environment checks:
+-//
+-// - Every accepted Wave was READY before the accepting clock edge.
+-// - Selection remains stable while valid is high and ready is low.
+-// - The pointer changes only on schedule_fire.
+-// - The pointer wraps correctly.
+-// - No selection is issued when no READY Wave exists.
+-// - With continued downstream acceptance, persistently READY Waves are served.
+-// - Reset discards any previously locked selection.
+-//
+-// Module summary and future upgrades
+-// -----------------------------------------------------------------------------
+-//
+-// M2 provides a single-port Round-Robin Scheduler for resident READY Waves.
+-//
+-// It separates selection from Context ownership and preserves the selected
+-// payload during execution-port backpressure.
+-//
+-// Later milestones may add execution-class eligibility, dependency-aware
+-// candidate masks or several issue ports. Wave architectural state remains
+-// owned by the Context Table and related state-storage modules.
+-// ============================================================================
+-module wave_scheduler #(
+-    parameter int NUM_WAVE_CONTEXTS =
+-        gpu_pkg::CDNA_NUM_RESIDENT_WAVES,
+-
+-    parameter int WAVE_ID_BITS =
+-        (NUM_WAVE_CONTEXTS > 1) ?
+-        $clog2(NUM_WAVE_CONTEXTS) : 1
+-) (
+-    input  logic                         clk,
+-    input  logic                         rst_n,
+-
+-    input  logic [NUM_WAVE_CONTEXTS-1:0] ready_mask,
+-
+-    output logic                         selected_valid,
+-    input  logic                         selected_ready,
+-    output logic [WAVE_ID_BITS-1:0]      selected_wave_id
+-);
+-
+-    // Round-Robin扫描起点
+-    logic [WAVE_ID_BITS-1:0] round_robin_pointer;
+-	logic [WAVE_ID_BITS-1:0] round_robin_pointer_nxt;
+-    // 背压期间保存选中的Wave
+-    logic                    locked;
+-    logic [WAVE_ID_BITS-1:0] locked_wave_id;
+-
+-    // 当前Round-Robin组合仲裁结果
+-    logic                    candidate_valid;
+-    logic [WAVE_ID_BITS-1:0] candidate_wave_id;
+-
+-    // 当前选择被执行端接受
+-    logic schedule_fire;
+-
+-    // 组合扫描变量
+-    integer scan_comb;
+-    integer index_comb;
+-
+-    // 后续由你逐块实现
+-always_ff @(posedge clk or negedge rst_n)begin
+-	if(!rst_n)
+-		round_robin_pointer <= '0;
+-	else 
+-		round_robin_pointer <= round_robin_pointer_nxt;
+-end
+-
+-
+-assign 	round_robin_pointer_nxt = 
+-		(schedule_fire && selected_wave_id == NUM_WAVE_CONTEXTS-1) ?
+-		'0 : schedule_fire ? 
+-		(selected_wave_id + 1'b1): round_robin_pointer;
+-
+-
+-always_comb begin
+-	candidate_valid = '0;
+-	candidate_wave_id = '0;
+-	for (scan_comb = 0; scan_comb < NUM_WAVE_CONTEXTS ; scan_comb = scan_comb +1)begin
+-		index_comb = scan_comb + round_robin_pointer;
+-		if (index_comb >= NUM_WAVE_CONTEXTS)
+-			index_comb = index_comb - NUM_WAVE_CONTEXTS;
+-		if( ready_mask[index_comb] == 1'b1&&!candidate_valid)begin
+-			candidate_valid = 1'b1;
+-			candidate_wave_id = index_comb;
+-		end
+-	end
+-
+-end	
+-aalways_comb begin
+-    selected_valid   = '0;
+-    selected_wave_id = '0;
+-
+-    if (rst_n) begin
+-        if (locked) begin
+-            selected_valid   = 1'b1;
+-            selected_wave_id = locked_wave_id;
+-        end
+-        else if (candidate_valid) begin
+-            selected_valid   = 1'b1;
+-            selected_wave_id = candidate_wave_id;
+-        end
+-    end
+-end
+-assign schedule_fire = selected_valid && selected_ready;
+-
+-always_ff @(posedge clk or negedge rst_n)begin
+-	if (!rst_n)begin
+-		locked <= '0;
+-		locked_wave_id <= '0;
+-	end
+-	else if (schedule_fire)
+-		locked <='0;
+-	else if (selected_valid && !selected_ready)begin
+-		locked_wave_id <= selected_wave_id;
+-		locked <= 1'b1;
+-	end
+-end
+-
+-endmodule
+-
+--- /dev/null
++++ b/scripts/open_m2_verdi.sh
+@@ -0,0 +1,14 @@
++#!/usr/bin/env bash
++set -euo pipefail
++project_root="$(cd "$(dirname "$0")/.." && pwd)"
++cd "$project_root"
++contexts="${1:-4}"
++wg_threads="${2:-64}"
++wave_file="waves/tinygpu_m2_n${contexts}_wg${wg_threads}.fsdb"
++if [[ ! -s "$wave_file" ]]; then
++    echo "Run scripts/run_m2_vcs.sh with the Verdi PLI enabled to create M2 FSDB."
++    exit 1
++fi
++verdi -sv "+define+M2_NUM_CONTEXTS=${contexts}" "+define+M2_WG_THREADS=${wg_threads}" \
++    -f sim/filelist_m2_rtl.f -f sim/filelist_m2_tb.f \
++    -top tb_wave_control_subsystem -ssf "$wave_file" &
+--- a/scripts/preflight.py
++++ b/scripts/preflight.py
+@@ -120,6 +120,27 @@
+     print("PASS: absolute branch targets use byte addresses")
+ 
+ 
++def check_m2_filelists() -> None:
++    expected = {"wave_context_table", "wave_dispatcher", "wave_scheduler",
++                "wave_dependency_tracker", "wave_retire_controller", "wave_control_subsystem"}
++    rtl_files = read_filelist("filelist_m2_rtl.f")
++    tb_files = read_filelist("filelist_m2_tb.f")
++    if rtl_files[0] != ROOT / "rtl/gpu_pkg.sv":
++        fail("M2 package must be the first compile entry")
++    modules = set()
++    for path in rtl_files + tb_files:
++        if not path.is_file():
++            fail(f"missing M2 filelist entry: {path}")
++        names = re.findall(r"^\s*module\s+([A-Za-z_][A-Za-z0-9_]*)", path.read_text(), re.M)
++        for name in names:
++            if name in modules:
++                fail(f"duplicate M2 module: {name}")
++            modules.add(name)
++    if modules != expected | {"m2_protocol_checker", "tb_wave_control_subsystem"}:
++        fail(f"M2 module set is incomplete: {sorted(modules)}")
++    print("PASS: M2 RTL/TB filelists, module names and package order")
++
++
+ def check_basic_sv_balance() -> None:
+     for path in read_filelist("filelist_rtl.f") + read_filelist("filelist_tb.f"):
+         text = path.read_text()
+@@ -136,6 +157,7 @@
+ 
+ def main() -> int:
+     check_filelists()
++    check_m2_filelists()
+     check_patterns()
+     check_basic_sv_balance()
+     print("PASS: static preflight completed")
+--- /dev/null
++++ b/scripts/run_m1_verilator.py
+@@ -0,0 +1,32 @@
++#!/usr/bin/env python3
++"""Optional M1 RTL regression using Verilator 5 with timing support."""
++import argparse
++import os
++from pathlib import Path
++import subprocess
++import sys
++
++ROOT=Path(__file__).resolve().parents[1]
++def main():
++    parser=argparse.ArgumentParser()
++    parser.add_argument('--verilator',default='verilator')
++    parser.add_argument('--verilator-root')
++    args=parser.parse_args()
++    (ROOT/'logs').mkdir(exist_ok=True)
++    (ROOT/'build').mkdir(exist_ok=True)
++    environment=os.environ.copy()
++    if args.verilator_root:
++        environment['VERILATOR_ROOT']=args.verilator_root
++    command=[args.verilator,'--binary','--timing','--assert','-Wno-fatal','--top-module','tb_gpu',
++        '-f','sim/filelist_rtl.f','-f','sim/filelist_tb.f','--Mdir','build/obj_m1','-j','2']
++    result=subprocess.run(command,cwd=ROOT,env=environment,capture_output=True,text=True)
++    (ROOT/'logs/m1_verilator_compile.log').write_text(result.stdout+result.stderr)
++    if result.returncode:
++        print(result.stderr[-4000:]);return 1
++    run=subprocess.run([str(ROOT/'build/obj_m1/Vtb_gpu'),'+TEST=all'],cwd=ROOT,capture_output=True,text=True,timeout=60)
++    transcript=run.stdout+run.stderr
++    (ROOT/'logs/m1_regression.log').write_text(transcript)
++    print(transcript)
++    return 0 if run.returncode==0 and 'ALL 6 TESTS PASSED' in transcript and 'Legacy UOP opcode coverage 0-9 and F' in transcript else 1
++if __name__=='__main__':
++    sys.exit(main())
+--- /dev/null
++++ b/scripts/run_m2_iverilog.py
+@@ -0,0 +1,66 @@
++#!/usr/bin/env python3
++"""Run the M2 whole-subsystem regression; no single-module tests are run."""
++import argparse
++import json
++from pathlib import Path
++import shutil
++import subprocess
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--iverilog', default='iverilog')
++    parser.add_argument('--vvp', default='vvp')
++    parser.add_argument('--ivl-dir')
++    parser.add_argument('--contexts', type=int, default=4)
++    parser.add_argument('--wg', type=int, default=64)
++    parser.add_argument('--matrix', action='store_true')
++    parser.add_argument('--vcd', action='store_true')
++    args = parser.parse_args()
++    for tool in (args.iverilog, args.vvp):
++        if shutil.which(tool) is None:
++            parser.error('Executable not found: ' + tool)
++    configs = ([(n,64) for n in (1,3,4,5,8)] + [(4,p) for p in (1,33,97)]) if args.matrix else [(args.contexts,args.wg)]
++    for directory in ('build','logs','waves'):
++        (ROOT/directory).mkdir(exist_ok=True)
++    results = []
++    for n,p in configs:
++        label = 'm2_n%d_wg%d' % (n,p)
++        output = ROOT/'build'/(label+'.vvp')
++        compile_args = [args.iverilog]
++        if args.ivl_dir:
++            compile_args += ['-B', args.ivl_dir]
++        compile_args += ['-g2012','-DM2_IVERILOG','-s','tb_wave_control_subsystem',
++            '-DM2_NUM_CONTEXTS=%d' % n,'-DM2_WG_THREADS=%d' % p,
++            '-f','sim/filelist_m2_rtl.f','-f','sim/filelist_m2_tb.f','-o',str(output)]
++        compile_run = subprocess.run(compile_args, cwd=ROOT, capture_output=True, text=True, timeout=60)
++        (ROOT/'logs'/(label+'_compile.log')).write_text(compile_run.stdout+compile_run.stderr)
++        passed = False
++        if compile_run.returncode == 0:
++            run_args = [args.vvp]
++            if args.ivl_dir:
++                run_args += ['-M',args.ivl_dir]
++            run_args += [str(output)]
++            if args.vcd:
++                run_args += ['+VCD']
++            run = subprocess.run(run_args,cwd=ROOT,capture_output=True,text=True,timeout=60)
++            transcript = run.stdout+run.stderr
++            (ROOT/'logs'/(label+'.log')).write_text(transcript)
++            passed = run.returncode == 0 and 'SCENARIO GROUPS PASSED' in transcript
++            for line in transcript.splitlines():
++                if line.startswith(('TinyGPU M2:', 'M2 COVERAGE')) or 'FATAL' in line:
++                    print(line,flush=True)
++        else:
++            print(compile_run.stderr[-4000:],flush=True)
++        results.append({'contexts':n,'threads_per_workgroup':p,'status':'PASS' if passed else 'FAIL','log':'logs/'+label+'.log'})
++        if not passed:
++            break
++    (ROOT/'logs/m2_results.json').write_text(json.dumps(results,indent=2)+'\n')
++    good = len(results)==len(configs) and all(r['status']=='PASS' for r in results)
++    print('M2 matrix: %d/%d configurations passed' % (sum(r['status']=='PASS' for r in results),len(configs)),flush=True)
++    return 0 if good else 1
++
++if __name__=='__main__':
++    sys.exit(main())
+--- /dev/null
++++ b/scripts/run_m2_vcs.sh
+@@ -0,0 +1,50 @@
++#!/usr/bin/env bash
++set -euo pipefail
++project_root="$(cd "$(dirname "$0")/.." && pwd)"
++cd "$project_root"
++contexts="${1:-4}"
++wg_threads="${2:-64}"
++if [[ ! "$contexts" =~ ^[1-9][0-9]*$ || ! "$wg_threads" =~ ^[1-9][0-9]*$ ]]; then
++    echo "Usage: $0 [positive Context count] [positive Workgroup thread count]" >&2
++    exit 2
++fi
++run_tag="n${contexts}_wg${wg_threads}"
++mkdir -p build logs waves
++# VCS2016/Verdi2016 are the final acceptance tools. This script uses their
++# existing PATH entries; it neither downloads nor substitutes a simulator.
++vcs_args=(
++    -full64 -sverilog -timescale=1ns/1ns -debug_access+all -kdb
++    "+define+M2_NUM_CONTEXTS=${contexts}" "+define+M2_WG_THREADS=${wg_threads}"
++    -top tb_wave_control_subsystem
++    -f sim/filelist_m2_rtl.f -f sim/filelist_m2_tb.f
++    "-Mdir=build/csrc_m2_${run_tag}"
++    -o build/simv_m2 -l "logs/m2_vcs_${run_tag}_compile.log"
++)
++novas_root="${NOVAS_HOME:-${VERDI_HOME:-}}"
++fsdb_enabled=0
++if [[ -n "$novas_root" ]]; then
++    pli_dir="$novas_root/share/PLI/VCS/LINUX64"
++    if [[ -f "$pli_dir/novas.tab" && -f "$pli_dir/pli.a" ]]; then
++        vcs_args+=(+define+FSDB -P "$pli_dir/novas.tab" "$pli_dir/pli.a")
++        fsdb_enabled=1
++    fi
++fi
++if [[ "$fsdb_enabled" == 0 ]]; then
++    echo "FSDB disabled: set NOVAS_HOME or VERDI_HOME to your Verdi2016 installation."
++fi
++vcs "${vcs_args[@]}"
++if [[ "$fsdb_enabled" == 1 ]]; then
++    rm -f waves/tinygpu_m2.fsdb
++fi
++./build/simv_m2 -l "logs/m2_vcs_${run_tag}.log"
++if ! grep -Eq "TinyGPU M2: ALL [0-9]+ SCENARIO GROUPS PASSED N=${contexts} WG=${wg_threads} " "logs/m2_vcs_${run_tag}.log"; then
++    echo "M2 failed: missing complete regression PASS signature." >&2
++    exit 1
++fi
++if [[ "$fsdb_enabled" == 1 ]]; then
++    if [[ ! -s waves/tinygpu_m2.fsdb ]]; then
++        echo "M2 passed, but the expected Verdi FSDB was not generated." >&2
++        exit 1
++    fi
++    cp waves/tinygpu_m2.fsdb "waves/tinygpu_m2_${run_tag}.fsdb"
++fi
+--- /dev/null
++++ b/scripts/run_m2_vcs_matrix.sh
+@@ -0,0 +1,19 @@
++#!/usr/bin/env bash
++# Final acceptance matrix for the user's VCS2016 environment.
++set -euo pipefail
++project_root="$(cd "$(dirname "$0")/.." && pwd)"
++cd "$project_root"
++mkdir -p logs
++summary=logs/m2_vcs_matrix.log
++: > "$summary"
++configs=("1 64" "3 64" "4 64" "5 64" "8 64" "4 1" "4 33" "4 97")
++for config in "${configs[@]}"; do
++    read -r contexts wg_threads <<< "$config"
++    echo "VCS2016 M2: N=${contexts} WG=${wg_threads}" | tee -a "$summary"
++    if ! ./scripts/run_m2_vcs.sh "$contexts" "$wg_threads"; then
++        echo "FAIL N=${contexts} WG=${wg_threads}" | tee -a "$summary"
++        exit 1
++    fi
++    grep -E '^TinyGPU M2: ALL ' "logs/m2_vcs_n${contexts}_wg${wg_threads}.log" | tee -a "$summary"
++done
++echo "M2 VCS matrix: 8/8 configurations passed" | tee -a "$summary"
+--- /dev/null
++++ b/sim/filelist_m2_rtl.f
+@@ -0,0 +1,7 @@
++rtl/gpu_pkg.sv
++rtl/wave_context_table.sv
++rtl/wave_dispatcher.sv
++rtl/wave_scheduler.sv
++rtl/wave_dependency_tracker.sv
++rtl/wave_retire_controller.sv
++rtl/wave_control_subsystem.sv
+--- /dev/null
++++ b/sim/filelist_m2_tb.f
+@@ -0,0 +1,2 @@
++tb/m2_protocol_checker.sv
++tb/tb_wave_control_subsystem.sv
+--- /dev/null
++++ b/tb/m2_protocol_checker.sv
+@@ -0,0 +1,78 @@
++`timescale 1ns/1ns
++// Simulation-only protocol assertions, using constructs supported by VCS2016
++// and Icarus. Strict checks can be disabled for explicitly labelled negative
++// stimuli; lifecycle, retirement and stall checks always remain enabled.
++module m2_protocol_checker #(
++    parameter integer N=4,
++    parameter integer W=(N>1)?$clog2(N):1,
++    parameter integer PAYLOAD_BITS=1
++) (
++    input logic clk, rst_n, strict_events,
++    input logic selected_valid, selected_ready,
++    input logic [W-1:0] selected_wave_id,
++    input logic [PAYLOAD_BITS-1:0] selected_payload,
++    input logic alloc_fire, schedule_fire, retire_fire,
++    input logic [W-1:0] alloc_wave_id, retire_wave_id,
++    input logic commit_valid,
++    input logic [W-1:0] commit_wave_id,
++    input gpu_pkg::wave_context_state_t commit_next_state,
++    input logic wait_arm_valid,
++    input logic [W-1:0] wait_arm_wave_id,
++    input logic [N-1:0] free_mask, resident_mask, ready_mask, issued_mask,
++    input logic [N-1:0] waitcnt_mask, barrier_mask, done_mask,
++    input logic [N-1:0] wait_satisfied_mask, wait_wakeup_mask,
++    input logic [N-1:0] all_counters_zero_mask, wait_active,
++    input logic done
++);
++    import gpu_pkg::*;
++    logic stalled, previous_done;
++    logic [W-1:0] stalled_id;
++    logic [PAYLOAD_BITS-1:0] stalled_payload;
++    integer i, state_bits;
++    always @(posedge clk or negedge rst_n) begin
++        if (!rst_n) begin
++            stalled=0; previous_done=0; stalled_id=0; stalled_payload=0;
++        end
++        else begin
++            if ((^{free_mask,resident_mask,ready_mask,issued_mask,
++                waitcnt_mask,barrier_mask,done_mask,alloc_fire,schedule_fire,retire_fire,done}) === 1'bx)
++                $fatal(1,"M2 assertion: unknown control/mask");
++            if (resident_mask !== ~free_mask)
++                $fatal(1,"M2 assertion: residency differs from allocated entries");
++            for(i=0;i<N;i=i+1) begin
++                state_bits=int'(free_mask[i])+int'(ready_mask[i])+int'(issued_mask[i])+
++                           int'(waitcnt_mask[i])+int'(barrier_mask[i])+int'(done_mask[i]);
++                if(state_bits!=1) $fatal(1,"M2 assertion: state masks do not partition entries");
++                if((free_mask[i]||done_mask[i]) && wait_active[i])
++                    $fatal(1,"M2 assertion: FREE/DONE owns an active Wait");
++            end
++            if(wait_wakeup_mask !== (waitcnt_mask & wait_satisfied_mask))
++                $fatal(1,"M2 assertion: wakeup qualification mismatch");
++            if(alloc_fire && (alloc_wave_id>=N || !free_mask[alloc_wave_id]))
++                $fatal(1,"M2 assertion: allocation into occupied entry");
++            if(schedule_fire && (selected_wave_id>=N || !ready_mask[selected_wave_id]))
++                $fatal(1,"M2 assertion: issue of non-READY entry");
++            if(retire_fire && (retire_wave_id>=N || !done_mask[retire_wave_id] ||
++                !all_counters_zero_mask[retire_wave_id] || wait_active[retire_wave_id]))
++                $fatal(1,"M2 assertion: unsafe retirement");
++            if(strict_events && commit_valid) begin
++                if(commit_wave_id>=N || !issued_mask[commit_wave_id])
++                    $fatal(1,"M2 assertion: commit of non-ISSUED entry");
++                if(commit_next_state!=WAVE_STATE_READY && commit_next_state!=WAVE_STATE_WAITCNT &&
++                   commit_next_state!=WAVE_STATE_BARRIER && commit_next_state!=WAVE_STATE_DONE)
++                    $fatal(1,"M2 assertion: illegal commit result state");
++            end
++            if(strict_events && wait_arm_valid &&
++               (!commit_valid || wait_arm_wave_id!=commit_wave_id ||
++                wait_arm_wave_id>=N || !issued_mask[wait_arm_wave_id]))
++                $fatal(1,"M2 assertion: Wait arm is not aligned with commit");
++            if(stalled && (!selected_valid || selected_wave_id!==stalled_id ||
++                           selected_payload!==stalled_payload))
++                $fatal(1,"M2 assertion: stalled launch payload changed");
++            if(done && previous_done) $fatal(1,"M2 assertion: Kernel done exceeds one cycle");
++            previous_done=done;
++            stalled=selected_valid && !selected_ready;
++            stalled_id=selected_wave_id; stalled_payload=selected_payload;
++        end
++    end
++endmodule
+--- /dev/null
++++ b/tb/tb_wave_control_subsystem.sv
+@@ -0,0 +1,689 @@
++`timescale 1ns/1ns
++// Whole-subsystem M2 stage test, not a single-module unit test.
++// Integer reference model: dispatch descriptors, lifecycle, Round-Robin,
++// architectural context, seven counters, saved Waits and Kernel completion.
++// Synthetic events replace the future Wave-tagged execution/backend path.
++`ifndef M2_NUM_CONTEXTS
++`define M2_NUM_CONTEXTS 4
++`endif
++`ifndef M2_WG_THREADS
++`define M2_WG_THREADS 64
++`endif
++module tb_wave_control_subsystem;
++    import gpu_pkg::*;
++    parameter integer N=`M2_NUM_CONTEXTS;
++    parameter integer P=`M2_WG_THREADS;
++    localparam integer NUM_WAVE_CONTEXTS=N;
++    localparam integer WAVE_ID_BITS=(N>1)?$clog2(N):1;
++    localparam integer PC_BITS=CDNA_PC_BITS;
++    localparam integer THREAD_COUNT_BITS=CDNA_THREAD_COUNT_BITS;
++    localparam integer EXEC_BITS=CDNA_EXEC_BITS, VCC_BITS=CDNA_VCC_BITS;
++    localparam integer DATA_BITS=CDNA_DATA_BITS;
++    localparam integer WORKGROUP_ID_BITS=CDNA_WORKGROUP_ID_BITS;
++    localparam integer WG_WAVE_ID_BITS=CDNA_WORKGROUP_WAVE_ID_BITS;
++    localparam integer WG_WAVE_COUNT_BITS=CDNA_WORKGROUP_WAVE_COUNT_BITS;
++    localparam integer GLOBAL_THREAD_ID_BITS=CDNA_GLOBAL_THREAD_ID_BITS;
++    logic clk;
++    logic rst_n;
++    logic start;
++    logic [PC_BITS-1:0] start_pc;
++    logic [THREAD_COUNT_BITS-1:0] thread_count;
++    logic busy;
++    logic done;
++    logic selected_valid;
++    logic selected_ready;
++    logic [WAVE_ID_BITS-1:0] selected_wave_id;
++    logic selected_context_valid;
++    gpu_pkg::wave_context_state_t selected_state;
++    logic [PC_BITS-1:0] selected_pc;
++    logic [EXEC_BITS-1:0] selected_exec;
++    logic [VCC_BITS-1:0] selected_vcc;
++    logic selected_scc;
++    logic [DATA_BITS-1:0] selected_m0;
++    logic [WORKGROUP_ID_BITS-1:0] selected_workgroup_id;
++    logic [WG_WAVE_ID_BITS-1:0] selected_wave_index;
++    logic [WG_WAVE_COUNT_BITS-1:0] selected_waves_in_workgroup;
++    logic [GLOBAL_THREAD_ID_BITS-1:0] selected_global_thread_base;
++    logic commit_valid;
++    logic [WAVE_ID_BITS-1:0] commit_wave_id;
++    gpu_pkg::wave_context_state_t commit_next_state;
++    logic commit_pc_write_enable;
++    logic [PC_BITS-1:0] commit_pc;
++    logic commit_exec_write_enable;
++    logic [EXEC_BITS-1:0] commit_exec;
++    logic commit_vcc_write_enable;
++    logic [VCC_BITS-1:0] commit_vcc;
++    logic commit_scc_write_enable;
++    logic commit_scc;
++    logic commit_m0_write_enable;
++    logic [DATA_BITS-1:0] commit_m0;
++    logic dependency_issue_valid;
++    logic [WAVE_ID_BITS-1:0] dependency_issue_wave_id;
++    gpu_pkg::dependency_kind_t dependency_issue_kind;
++    logic [gpu_pkg::DEPENDENCY_AMOUNT_BITS-1:0] dependency_issue_amount;
++    logic dependency_complete_valid;
++    logic [WAVE_ID_BITS-1:0] dependency_complete_wave_id;
++    gpu_pkg::dependency_kind_t dependency_complete_kind;
++    logic [gpu_pkg::DEPENDENCY_AMOUNT_BITS-1:0] dependency_complete_amount;
++    logic wait_arm_valid;
++    logic [WAVE_ID_BITS-1:0] wait_arm_wave_id;
++    logic [gpu_pkg::DEPENDENCY_COUNTER_COUNT-1:0] wait_counter_mask;
++    logic [gpu_pkg::CDNA_LOAD_COUNTER_BITS-1:0] wait_load_threshold;
++    logic [gpu_pkg::CDNA_STORE_COUNTER_BITS-1:0] wait_store_threshold;
++    logic [gpu_pkg::CDNA_DS_COUNTER_BITS-1:0] wait_ds_threshold;
++    logic [gpu_pkg::CDNA_KM_COUNTER_BITS-1:0] wait_km_threshold;
++    logic [gpu_pkg::CDNA_ASYNC_COUNTER_BITS-1:0] wait_async_threshold;
++    logic [gpu_pkg::CDNA_TENSOR_COUNTER_BITS-1:0] wait_tensor_threshold;
++    logic [gpu_pkg::CDNA_X_COUNTER_BITS-1:0] wait_x_threshold;
++    logic wait_arm_satisfied;
++    logic [NUM_WAVE_CONTEXTS-1:0] barrier_release_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] free_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] resident_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] ready_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] issued_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] waitcnt_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] barrier_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] done_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] wait_satisfied_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] wait_wakeup_mask;
++    logic [NUM_WAVE_CONTEXTS-1:0] all_counters_zero_mask;
++    logic alloc_fire;
++    logic [WAVE_ID_BITS-1:0] alloc_wave_id;
++    logic schedule_fire;
++    logic retire_fire;
++    logic [WAVE_ID_BITS-1:0] retire_wave_id;
++
++    wave_control_subsystem #(.NUM_WAVE_CONTEXTS(N), .THREADS_PER_WORKGROUP(P)) dut (.*);
++    logic strict_events=1;
++    logic commit_is_wait=0;
++    logic deposit_load_snapshot=0;
++`ifndef M2_IVERILOG
++    // VCS2016 test-only deposit: no second procedural driver of always_ff.
++    // Static generated indices avoid variable hierarchical path selection.
++    genvar deposit_index;
++    generate
++        for(deposit_index=0;deposit_index<N;deposit_index=deposit_index+1) begin : snapshot_deposit
++            always @(posedge deposit_load_snapshot)
++                $deposit(dut.u_dependency_tracker.load_count[deposit_index],6'd0);
++        end
++    endgenerate
++`endif
++    wave_context_state_t requested_next_state=WAVE_STATE_READY;
++    assign commit_next_state=commit_is_wait ?
++        (wait_arm_satisfied ? WAVE_STATE_READY : WAVE_STATE_WAITCNT) : requested_next_state;
++    localparam integer PAYLOAD_BITS=PC_BITS+EXEC_BITS+VCC_BITS+1+DATA_BITS+
++        WORKGROUP_ID_BITS+WG_WAVE_ID_BITS+WG_WAVE_COUNT_BITS+GLOBAL_THREAD_ID_BITS;
++    wire [PAYLOAD_BITS-1:0] launch_payload={selected_pc,selected_exec,selected_vcc,
++        selected_scc,selected_m0,selected_workgroup_id,selected_wave_index,
++        selected_waves_in_workgroup,selected_global_thread_base};
++    m2_protocol_checker #(.N(N),.W(WAVE_ID_BITS),.PAYLOAD_BITS(PAYLOAD_BITS)) checker_inst (
++        .clk(clk),.rst_n(rst_n),.strict_events(strict_events),
++        .selected_valid(selected_valid),.selected_ready(selected_ready),
++        .selected_wave_id(selected_wave_id),.selected_payload(launch_payload),
++        .alloc_fire(alloc_fire),.schedule_fire(schedule_fire),.retire_fire(retire_fire),
++        .alloc_wave_id(alloc_wave_id),.retire_wave_id(retire_wave_id),
++        .commit_valid(commit_valid),.commit_wave_id(commit_wave_id),.commit_next_state(commit_next_state),
++        .wait_arm_valid(wait_arm_valid),.wait_arm_wave_id(wait_arm_wave_id),
++        .free_mask(free_mask),.resident_mask(resident_mask),.ready_mask(ready_mask),
++        .issued_mask(issued_mask),.waitcnt_mask(waitcnt_mask),.barrier_mask(barrier_mask),.done_mask(done_mask),
++        .wait_satisfied_mask(wait_satisfied_mask),.wait_wakeup_mask(wait_wakeup_mask),
++        .all_counters_zero_mask(all_counters_zero_mask),.wait_active(dut.u_dependency_tracker.wait_active),.done(done)
++    );
++    initial begin clk=0; forever #5 clk=~clk; end
++    integer state_ref[0:N-1], count_ref[0:N-1][0:6];
++    integer threshold_ref[0:N-1][0:6], program_ref[0:N-1], ordinal_ref[0:N-1];
++    logic active_ref[0:N-1];
++    logic [6:0] wait_mask_ref[0:N-1];
++    logic [PC_BITS-1:0] pc_ref[0:N-1];
++    logic [EXEC_BITS-1:0] exec_ref[0:N-1];
++    logic [VCC_BITS-1:0] vcc_ref[0:N-1];
++    logic scc_ref[0:N-1];
++    logic [DATA_BITS-1:0] m0_ref[0:N-1];
++    integer wg_ref[0:N-1], wi_ref[0:N-1], wc_ref[0:N-1], base_ref[0:N-1];
++    integer kernel_ref=0, pointer_ref=0, locked_id_ref=0;
++    logic locked_ref=0, finished_ref=0;
++    integer threads_ref=0, next_wg_ref=0, next_wave_ref=0;
++    integer dispatched_ref=0, completed_ref=0;
++    logic [PC_BITS-1:0] launch_pc_ref=0;
++    integer cycles=0, checks=0, cases=0;
++    integer cov_stall=0, cov_full=0, cov_wait=0, cov_barrier=0, cov_done_pending=0;
++    integer cov_reuse=0, cov_concurrent=0, cov_net=0, cov_multiwake=0, cov_nonblocking=0;
++    logic used_entry[0:N-1];
++    integer seed=32'h10032026, random_unused;
++    integer i,j,k,a,step_index;
++    string case_name="initial";
++    logic [N-1:0] f_ref,r_ref,is_ref,wt_ref,b_ref,d_ref,z_ref,sat_ref;
++
++    function automatic integer limit_of(input integer kind);
++        limit_of=(kind==DEP_KM)?31:63;
++    endfunction
++    function automatic integer actual_count(input integer id,input integer kind);
++        case(kind)
++            DEP_LOAD:actual_count=dut.u_dependency_tracker.load_count[id];
++            DEP_STORE:actual_count=dut.u_dependency_tracker.store_count[id];
++            DEP_DS:actual_count=dut.u_dependency_tracker.ds_count[id];
++            DEP_KM:actual_count=dut.u_dependency_tracker.km_count[id];
++            DEP_ASYNC:actual_count=dut.u_dependency_tracker.async_count[id];
++            DEP_TENSOR:actual_count=dut.u_dependency_tracker.tensor_count[id];
++            default:actual_count=dut.u_dependency_tracker.x_count[id];
++        endcase
++    endfunction
++    function automatic integer threshold_input(input integer kind);
++        case(kind)
++            DEP_LOAD:threshold_input=wait_load_threshold;
++            DEP_STORE:threshold_input=wait_store_threshold;
++            DEP_DS:threshold_input=wait_ds_threshold;
++            DEP_KM:threshold_input=wait_km_threshold;
++            DEP_ASYNC:threshold_input=wait_async_threshold;
++            DEP_TENSOR:threshold_input=wait_tensor_threshold;
++            default:threshold_input=wait_x_threshold;
++        endcase
++    endfunction
++    function automatic integer actual_threshold(input integer id,input integer kind);
++        case(kind)
++            DEP_LOAD:actual_threshold=dut.u_dependency_tracker.saved_wait_load_threshold[id];
++            DEP_STORE:actual_threshold=dut.u_dependency_tracker.saved_wait_store_threshold[id];
++            DEP_DS:actual_threshold=dut.u_dependency_tracker.saved_wait_ds_threshold[id];
++            DEP_KM:actual_threshold=dut.u_dependency_tracker.saved_wait_km_threshold[id];
++            DEP_ASYNC:actual_threshold=dut.u_dependency_tracker.saved_wait_async_threshold[id];
++            DEP_TENSOR:actual_threshold=dut.u_dependency_tracker.saved_wait_tensor_threshold[id];
++            default:actual_threshold=dut.u_dependency_tracker.saved_wait_x_threshold[id];
++        endcase
++    endfunction
++    function automatic logic resident_ref(input integer id);
++        resident_ref=0;
++        if(id<N) resident_ref=(state_ref[id]!=WAVE_STATE_FREE);
++    endfunction
++    function automatic logic arm_satisfied_ref;
++        integer kind;
++        begin
++            arm_satisfied_ref=0;
++            if(wait_arm_valid && resident_ref(wait_arm_wave_id)) begin
++                arm_satisfied_ref=1;
++                for(kind=0;kind<7;kind=kind+1)
++                    if(wait_counter_mask[kind] && count_ref[wait_arm_wave_id][kind]>threshold_input(kind))
++                        arm_satisfied_ref=0;
++            end
++        end
++    endfunction
++    function automatic integer waves_for(input integer threads);
++        waves_for=(threads/P)*((P+31)/32)+((threads%P)+31)/32;
++    endfunction
++
++    task automatic inputs_idle;
++        begin
++            start=0; selected_ready=0; commit_valid=0; commit_is_wait=0;
++            commit_wave_id=0; requested_next_state=WAVE_STATE_READY;
++            commit_pc_write_enable=0; commit_exec_write_enable=0; commit_vcc_write_enable=0;
++            commit_scc_write_enable=0; commit_m0_write_enable=0;
++            commit_pc=0; commit_exec=0; commit_vcc=0; commit_scc=0; commit_m0=0;
++            dependency_issue_valid=0; dependency_complete_valid=0;
++            dependency_issue_wave_id=0; dependency_complete_wave_id=0;
++            dependency_issue_kind=0; dependency_complete_kind=0;
++            dependency_issue_amount=0; dependency_complete_amount=0;
++            wait_arm_valid=0; wait_arm_wave_id=0; wait_counter_mask=0;
++            wait_load_threshold=0; wait_store_threshold=0; wait_ds_threshold=0;
++            wait_km_threshold=0; wait_async_threshold=0; wait_tensor_threshold=0; wait_x_threshold=0;
++            barrier_release_mask=0; strict_events=1;
++        end
++    endtask
++    task automatic clear_entry(input integer id);
++        begin
++            state_ref[id]=WAVE_STATE_FREE;
++            pc_ref[id]=0; exec_ref[id]=0; vcc_ref[id]=0; scc_ref[id]=0; m0_ref[id]=0;
++            wg_ref[id]=0; wi_ref[id]=0; wc_ref[id]=0; base_ref[id]=0; program_ref[id]=0;
++        end
++    endtask
++    task automatic reset_model;
++        integer id,kind;
++        begin
++            kernel_ref=0; pointer_ref=0; locked_ref=0; locked_id_ref=0;
++            finished_ref=0; threads_ref=0; next_wg_ref=0; next_wave_ref=0;
++            dispatched_ref=0; completed_ref=0; launch_pc_ref=0;
++            for(id=0;id<N;id=id+1) begin
++                clear_entry(id); active_ref[id]=0; wait_mask_ref[id]=0;
++                for(kind=0;kind<7;kind=kind+1) begin count_ref[id][kind]=0; threshold_ref[id][kind]=0; end
++            end
++        end
++    endtask
++    task automatic check_state;
++        integer id,kind,expected_select,expected_release,expected_free,scan;
++        integer wg_threads,wg_waves,base,lanes;
++        logic [EXEC_BITS-1:0] initial_mask;
++        logic expected_valid;
++        begin
++            f_ref=0;r_ref=0;is_ref=0;wt_ref=0;b_ref=0;d_ref=0;z_ref='1;sat_ref=0;
++            expected_release=-1; expected_free=-1;
++            for(id=0;id<N;id=id+1) begin
++                case(state_ref[id])
++                    WAVE_STATE_FREE:f_ref[id]=1;
++                    WAVE_STATE_READY:r_ref[id]=1;
++                    WAVE_STATE_ISSUED:is_ref[id]=1;
++                    WAVE_STATE_WAITCNT:wt_ref[id]=1;
++                    WAVE_STATE_BARRIER:b_ref[id]=1;
++                    WAVE_STATE_DONE:d_ref[id]=1;
++                    default:$fatal(1,"Reference state invalid");
++                endcase
++                sat_ref[id]=active_ref[id];
++                for(kind=0;kind<7;kind=kind+1) begin
++                    if(count_ref[id][kind]!=0) z_ref[id]=0;
++                    if(wait_mask_ref[id][kind] && count_ref[id][kind]>threshold_ref[id][kind]) sat_ref[id]=0;
++                    if(actual_count(id,kind)!==count_ref[id][kind])
++                        $fatal(1,"%s cycle=%0d wave=%0d kind=%0d count expected=%0d got=%0d",case_name,cycles,id,kind,count_ref[id][kind],actual_count(id,kind));
++                    if(actual_threshold(id,kind)!==threshold_ref[id][kind]) $fatal(1,"Saved Wait threshold mismatch");
++                    checks=checks+2;
++                end
++                if(dut.u_dependency_tracker.wait_active[id]!==active_ref[id] ||
++                   dut.u_dependency_tracker.saved_wait_counter_mask[id]!==wait_mask_ref[id]) $fatal(1,"Saved Wait state mismatch");
++                if(dut.u_context_table.context_state[id]!==3'(state_ref[id]) ||
++                   dut.u_context_table.context_pc[id]!==pc_ref[id] ||
++                   dut.u_context_table.context_exec[id]!==exec_ref[id] ||
++                   dut.u_context_table.context_vcc[id]!==vcc_ref[id] ||
++                   dut.u_context_table.context_scc[id]!==scc_ref[id] ||
++                   dut.u_context_table.context_m0[id]!==m0_ref[id]) $fatal(1,"%s Context mismatch wave=%0d",case_name,id);
++                if(expected_free<0 && f_ref[id]) expected_free=id;
++                if(expected_release<0 && d_ref[id] && z_ref[id]) expected_release=id;
++            end
++            if({free_mask,ready_mask,issued_mask,waitcnt_mask,barrier_mask,done_mask}!==
++               {f_ref,r_ref,is_ref,wt_ref,b_ref,d_ref}) $fatal(1,"%s state-mask mismatch cycle=%0d",case_name,cycles);
++            if(resident_mask!==~f_ref || all_counters_zero_mask!==z_ref || wait_satisfied_mask!==sat_ref ||
++               wait_wakeup_mask!==(wt_ref & sat_ref)) $fatal(1,"%s dependency/wakeup mask mismatch",case_name);
++            if(wait_arm_satisfied!==arm_satisfied_ref()) $fatal(1,"Incoming Wait query mismatch");
++            if(busy!==(kernel_ref==1) || done!==(kernel_ref==2)) $fatal(1,"%s Kernel status mismatch cycle=%0d",case_name,cycles);
++            if(dut.u_dispatcher.waves_dispatched!==33'(dispatched_ref) ||
++               dut.u_dispatcher.waves_completed!==33'(completed_ref)) $fatal(1,"Kernel accounting mismatch");
++            if(dut.alloc_valid!==((kernel_ref==1)&&!finished_ref) || dut.alloc_ready!==(expected_free>=0))
++                $fatal(1,"Dispatcher allocation flow mismatch");
++            if(expected_free<0) expected_free=0;
++            if(alloc_wave_id!==WAVE_ID_BITS'(expected_free)) $fatal(1,"FREE allocator priority mismatch");
++            if(dut.alloc_valid) begin
++                wg_threads=threads_ref-next_wg_ref*P;
++                if(wg_threads>P) wg_threads=P;
++                wg_waves=(wg_threads+31)/32;
++                base=next_wg_ref*P+next_wave_ref*32;
++                lanes=wg_threads-next_wave_ref*32;
++                if(lanes>32) lanes=32;
++                initial_mask=0;
++                for(scan=0;scan<32;scan=scan+1) if(scan<lanes) initial_mask[scan]=1;
++                if(dut.alloc_start_pc!==launch_pc_ref || dut.alloc_initial_exec!==initial_mask ||
++                   dut.alloc_workgroup_id!==WORKGROUP_ID_BITS'(next_wg_ref) ||
++                   dut.alloc_wave_index!==WG_WAVE_ID_BITS'(next_wave_ref) ||
++                   dut.alloc_waves_in_workgroup!==WG_WAVE_COUNT_BITS'(wg_waves) ||
++                   dut.alloc_global_thread_base!==GLOBAL_THREAD_ID_BITS'(base))
++                    $fatal(1,"%s descriptor mismatch WG=%0d wave=%0d base=%0d",case_name,next_wg_ref,next_wave_ref,base);
++            end
++            expected_select=-1;
++            if(locked_ref) expected_select=locked_id_ref;
++            else for(scan=0;scan<N;scan=scan+1) begin
++                id=(pointer_ref+scan)%N;
++                if(expected_select<0 && r_ref[id]) expected_select=id;
++            end
++            expected_valid=(expected_select>=0);
++            if(expected_select<0) expected_select=0;
++            if(selected_valid!==expected_valid || selected_wave_id!==WAVE_ID_BITS'(expected_select))
++                $fatal(1,"%s RR selection mismatch cycle=%0d",case_name,cycles);
++            id=expected_select;
++            if(selected_context_valid!==(state_ref[id]!=WAVE_STATE_FREE) ||
++               selected_state!==3'(state_ref[id]) || selected_pc!==pc_ref[id] || selected_exec!==exec_ref[id] ||
++               selected_vcc!==vcc_ref[id] || selected_scc!==scc_ref[id] || selected_m0!==m0_ref[id] ||
++               selected_workgroup_id!==WORKGROUP_ID_BITS'(wg_ref[id]) ||
++               selected_wave_index!==WG_WAVE_ID_BITS'(wi_ref[id]) ||
++               selected_waves_in_workgroup!==WG_WAVE_COUNT_BITS'(wc_ref[id]) ||
++               selected_global_thread_base!==GLOBAL_THREAD_ID_BITS'(base_ref[id])) $fatal(1,"Selected Context payload mismatch");
++            if(retire_fire!==(expected_release>=0)) $fatal(1,"Safe-retirement validity mismatch");
++            if(expected_release<0) expected_release=0;
++            if(retire_wave_id!==WAVE_ID_BITS'(expected_release) || dut.wave_completed!==retire_fire)
++                $fatal(1,"Retirement identity/completion wiring mismatch");
++            checks=checks+20;
++        end
++    endtask
++    task automatic tick;
++        integer id,kind,net,wg_threads,wg_waves,lanes,old_allocated;
++        logic issue_ok,complete_ok,arm_ok,arm_good;
++        logic [N-1:0] wake_before;
++        wave_context_state_t commit_result;
++        begin
++            #1; check_state();
++            issue_ok=dependency_issue_valid && resident_ref(dependency_issue_wave_id) && dependency_issue_kind<7 && dependency_issue_amount!=0;
++            complete_ok=dependency_complete_valid && resident_ref(dependency_complete_wave_id) && dependency_complete_kind<7 && dependency_complete_amount!=0;
++            arm_ok=wait_arm_valid && resident_ref(wait_arm_wave_id); arm_good=arm_satisfied_ref();
++            wake_before=wait_wakeup_mask; commit_result=commit_next_state; old_allocated=dispatched_ref;
++            if(selected_valid && !selected_ready) cov_stall=cov_stall+1;
++            if(dut.alloc_valid && !dut.alloc_ready) cov_full=cov_full+1;
++            if((alloc_fire && retire_fire)||(schedule_fire && commit_valid)) cov_concurrent=cov_concurrent+1;
++            if(issue_ok && complete_ok && dependency_issue_wave_id==dependency_complete_wave_id && dependency_issue_kind==dependency_complete_kind) cov_net=cov_net+1;
++            if($countones(wake_before)>1) cov_multiwake=cov_multiwake+1;
++            for(id=0;id<N;id=id+1) begin
++                if(state_ref[id]==WAVE_STATE_WAITCNT) cov_wait=cov_wait+1;
++                if(state_ref[id]==WAVE_STATE_BARRIER) cov_barrier=cov_barrier+1;
++                if(state_ref[id]==WAVE_STATE_DONE && !all_counters_zero_mask[id]) cov_done_pending=cov_done_pending+1;
++                if(state_ref[id]==WAVE_STATE_READY && !all_counters_zero_mask[id]) cov_nonblocking=cov_nonblocking+1;
++            end
++            @(posedge clk);
++            if(kernel_ref==0 && start) begin
++                kernel_ref=(thread_count==0)?2:1; threads_ref=thread_count; launch_pc_ref=start_pc;
++                next_wg_ref=0;next_wave_ref=0;finished_ref=0;dispatched_ref=0;completed_ref=0;
++            end
++            else if(kernel_ref==2) kernel_ref=0;
++            else if(kernel_ref==1 && finished_ref && retire_fire && completed_ref+1==dispatched_ref) kernel_ref=2;
++            if(schedule_fire) begin pointer_ref=(int'(selected_wave_id)+1)%N; locked_ref=0; end
++            else if(selected_valid && !selected_ready) begin locked_ref=1;locked_id_ref=selected_wave_id; end
++            for(id=0;id<N;id=id+1) begin
++                if(arm_ok && wait_arm_wave_id==id) begin
++                    active_ref[id]=!arm_good;wait_mask_ref[id]=wait_counter_mask;
++                    for(kind=0;kind<7;kind=kind+1) threshold_ref[id][kind]=threshold_input(kind);
++                end
++                else if(wake_before[id]) active_ref[id]=0;
++                for(kind=0;kind<7;kind=kind+1) begin
++                    if((retire_fire && retire_wave_id==id)||(alloc_fire && alloc_wave_id==id)) count_ref[id][kind]=0;
++                    else begin
++                        net=count_ref[id][kind];
++                        if(issue_ok && dependency_issue_wave_id==id && dependency_issue_kind==kind) net=net+dependency_issue_amount;
++                        if(complete_ok && dependency_complete_wave_id==id && dependency_complete_kind==kind) net=net-dependency_complete_amount;
++                        if(net>=0 && net<=limit_of(kind)) count_ref[id][kind]=net;
++                        else if(strict_events) $fatal(1,"Stimulus violates counter capacity");
++                    end
++                end
++                if(retire_fire && retire_wave_id==id) clear_entry(id);
++                else if(alloc_fire && alloc_wave_id==id) begin
++                    if(used_entry[id]) cov_reuse=cov_reuse+1;
++                    used_entry[id]=1; state_ref[id]=WAVE_STATE_READY;pc_ref[id]=launch_pc_ref;
++                    wg_threads=threads_ref-next_wg_ref*P;if(wg_threads>P) wg_threads=P;
++                    lanes=wg_threads-next_wave_ref*32;if(lanes>32) lanes=32;
++                    exec_ref[id]=0;for(kind=0;kind<32;kind=kind+1) if(kind<lanes) exec_ref[id][kind]=1;
++                    vcc_ref[id]=0;scc_ref[id]=0;m0_ref[id]=0;
++                    wg_ref[id]=next_wg_ref;wi_ref[id]=next_wave_ref;wc_ref[id]=(wg_threads+31)/32;
++                    base_ref[id]=next_wg_ref*P+next_wave_ref*32;ordinal_ref[id]=old_allocated;program_ref[id]=0;
++                end
++                else if(commit_valid && commit_wave_id==id && state_ref[id]==WAVE_STATE_ISSUED) begin
++                    state_ref[id]=commit_result;program_ref[id]=program_ref[id]+1;
++                    if(commit_pc_write_enable) pc_ref[id]=commit_pc;
++                    if(commit_exec_write_enable) exec_ref[id]=commit_exec;
++                    if(commit_vcc_write_enable) vcc_ref[id]=commit_vcc;
++                    if(commit_scc_write_enable) scc_ref[id]=commit_scc;
++                    if(commit_m0_write_enable) m0_ref[id]=commit_m0;
++                end
++                else if((wake_before[id] && state_ref[id]==WAVE_STATE_WAITCNT)||
++                        (barrier_release_mask[id] && state_ref[id]==WAVE_STATE_BARRIER)) state_ref[id]=WAVE_STATE_READY;
++                else if(schedule_fire && selected_wave_id==id && state_ref[id]==WAVE_STATE_READY) state_ref[id]=WAVE_STATE_ISSUED;
++            end
++            if(alloc_fire) begin
++                wg_threads=threads_ref-next_wg_ref*P;if(wg_threads>P) wg_threads=P;
++                wg_waves=(wg_threads+31)/32;
++                lanes=wg_threads-next_wave_ref*32;if(lanes>32) lanes=32;
++                if(next_wg_ref*P+next_wave_ref*32+lanes>=threads_ref) finished_ref=1;
++                else if(next_wave_ref+1==wg_waves) begin next_wg_ref=next_wg_ref+1;next_wave_ref=0;end
++                else next_wave_ref=next_wave_ref+1;
++                dispatched_ref=dispatched_ref+1;
++            end
++            if(retire_fire) completed_ref=completed_ref+1;
++            cycles=cycles+1;
++            #1;check_state();
++            @(negedge clk);
++        end
++    endtask
++    task automatic reset_system;
++        begin
++            inputs_idle(); rst_n=0;reset_model();
++            #2;check_state();
++            @(negedge clk);rst_n=1;tick();
++        end
++    endtask
++    task automatic launch(input integer threads);
++        begin
++            if(kernel_ref!=0) $fatal(1,"Launch helper needs IDLE");
++            inputs_idle();start=1;thread_count=threads;start_pc=64'h1000+cycles*4;tick();
++            inputs_idle();start_pc=64'hdead0000;thread_count=17;
++        end
++    endtask
++    task automatic accept_wave(output integer id);
++        integer timeout_cycles;
++        begin
++            inputs_idle();timeout_cycles=0;
++            #1;
++            while(!selected_valid && timeout_cycles<100) begin tick();timeout_cycles=timeout_cycles+1;end
++            if(!selected_valid) $fatal(1,"No schedulable Wave");
++            id=selected_wave_id;selected_ready=1;tick();inputs_idle();
++        end
++    endtask
++    task automatic prepare_commit(input integer id,input wave_context_state_t result_state);
++        begin
++            inputs_idle();commit_valid=1;commit_wave_id=id;requested_next_state=result_state;
++            commit_pc_write_enable=1;commit_pc=pc_ref[id]+4;
++            commit_vcc_write_enable=1;commit_vcc=64'habcdef00+ordinal_ref[id];
++            commit_scc_write_enable=1;commit_scc=!scc_ref[id];
++            commit_m0_write_enable=1;commit_m0=32'h8000+ordinal_ref[id];
++            commit_exec_write_enable=1;commit_exec=exec_ref[id]^64'h1;
++        end
++    endtask
++    task automatic complete_counter(input integer id,input integer kind,input integer amount);
++        begin
++            inputs_idle();dependency_complete_valid=1;dependency_complete_wave_id=id;
++            dependency_complete_kind=kind;dependency_complete_amount=amount;tick();inputs_idle();
++        end
++    endtask
++    task automatic random_step;
++        integer id,kind,offset,chosen;
++        begin
++            inputs_idle();
++            offset=$urandom_range(0,N-1); chosen=-1;
++            for(id=0;id<N;id=id+1)
++                if(chosen<0 && state_ref[(id+offset)%N]==WAVE_STATE_ISSUED) chosen=(id+offset)%N;
++            if(chosen>=0 && $urandom_range(0,3)!=0) begin
++                id=chosen;kind=ordinal_ref[id]%7;prepare_commit(id,WAVE_STATE_READY);
++                case(program_ref[id])
++                    0:begin dependency_issue_valid=1;dependency_issue_wave_id=id;
++                            dependency_issue_kind=kind;dependency_issue_amount=3;end
++                    1:if((ordinal_ref[id]%2)==0) begin
++                        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=id;wait_counter_mask=7'(1<<kind);
++                    end
++                    2:if((ordinal_ref[id]%3)==0) requested_next_state=WAVE_STATE_BARRIER;
++                    default:requested_next_state=WAVE_STATE_DONE;
++                endcase
++            end
++            selected_ready=($urandom_range(0,4)!=0);
++            barrier_release_mask=barrier_mask & N'($urandom);
++            if((cycles%3)==0) begin
++                chosen=-1;offset=$urandom_range(0,N*7-1);
++                for(id=0;id<N*7;id=id+1) begin
++                    kind=(id+offset)%(N*7);
++                    if(chosen<0 && count_ref[kind/7][kind%7]>0) chosen=kind;
++                end
++                if(chosen>=0) begin
++                    dependency_complete_valid=1;dependency_complete_wave_id=chosen/7;
++                    dependency_complete_kind=chosen%7;dependency_complete_amount=1;
++                end
++            end
++            tick();
++        end
++    endtask
++    task automatic finish_random;
++        integer timeout_cycles;
++        begin
++            timeout_cycles=0;
++            while(kernel_ref!=2 && timeout_cycles<20000) begin random_step();timeout_cycles=timeout_cycles+1;end
++            if(kernel_ref!=2) $fatal(1,"%s Kernel timeout N=%0d P=%0d",case_name,N,P);
++            if(dispatched_ref!=waves_for(threads_ref) || completed_ref!=dispatched_ref || resident_mask!='0)
++                $fatal(1,"Kernel completion totals/residency mismatch");
++            inputs_idle();tick();
++        end
++    endtask
++    task automatic pass_case(input string name);
++        begin cases=cases+1;$display("[PASS] M2 %s N=%0d WG=%0d",name,N,P);end
++    endtask
++    initial begin
++        rst_n=1;start_pc=0;thread_count=0;
++        random_unused=$urandom(seed);
++        for(i=0;i<N;i=i+1) used_entry[i]=0;
++        reset_model();reset_system();
++        case_name="zero_thread";
++        launch(0);
++        if(!done || alloc_fire || resident_mask!='0) $fatal(1,"Zero-thread launch failed");
++        inputs_idle();tick();pass_case(case_name);
++
++        case_name="dispatch_edges_and_random_lifecycle";
++        for(j=0;j<8;j=j+1) begin
++            case(j)
++                0:a=1;1:a=31;2:a=32;3:a=33;4:a=64;5:a=70;6:a=129;default:a=257;
++            endcase
++            launch(a);
++            // Hold execution to fill the table and lock a launch selection.
++            for(step_index=0;step_index<N+6;step_index=step_index+1) begin
++                inputs_idle();
++                if(step_index==2) begin start=1;start_pc=64'hbad00000;thread_count=0;end
++                tick(); // Busy-time launch is ignored, descriptor remains stable.
++            end
++            finish_random();
++        end
++        pass_case(case_name);
++
++        case_name="all_counter_bounds_wait_and_safe_retire";
++        launch(1);
++        for(k=0;k<7;k=k+1) begin
++            accept_wave(a);
++            // Explicit negative underflow test, with no architectural commit.
++            dependency_complete_valid=1;dependency_complete_wave_id=a;
++            dependency_complete_kind=k;dependency_complete_amount=1;strict_events=0;tick();
++            prepare_commit(a,WAVE_STATE_READY);
++            dependency_issue_valid=1;dependency_issue_wave_id=a;
++            dependency_issue_kind=k;dependency_issue_amount=limit_of(k);tick();
++            accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++            dependency_issue_valid=1;dependency_issue_wave_id=a;
++            dependency_issue_kind=k;dependency_issue_amount=63;
++            dependency_complete_valid=1;dependency_complete_wave_id=a;
++            dependency_complete_kind=k;dependency_complete_amount=63;tick();
++            accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++            dependency_issue_valid=1;dependency_issue_wave_id=a;
++            dependency_issue_kind=k;dependency_issue_amount=1;strict_events=0;tick();
++        end
++        accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=0;tick();
++        if(state_ref[a]!=WAVE_STATE_READY || dut.u_dependency_tracker.wait_active[a]) $fatal(1,"Empty Wait should be immediate");
++        accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask='1;wait_load_threshold=2;tick();
++        if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Multi-class Wait did not sleep");
++        complete_counter(a,DEP_LOAD,61);
++        for(k=1;k<7;k=k+1) complete_counter(a,k,limit_of(k));
++        inputs_idle();tick(); // Accept wakeup after the final comparison changed.
++        if(state_ref[a]!=WAVE_STATE_READY || all_counters_zero_mask[a]) $fatal(1,"Nonzero threshold/wakeup failed");
++        accept_wave(a);prepare_commit(a,WAVE_STATE_DONE);tick();
++        for(k=0;k<5;k=k+1) begin inputs_idle();tick();if(retire_fire) $fatal(1,"Retired with outstanding Load");end
++        complete_counter(a,DEP_LOAD,2);finish_random();pass_case(case_name);
++
++        case_name="completion_and_wait_arm_same_edge";
++        launch(1);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_DS;dependency_issue_amount=1;tick();
++        accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=7'(1<<DEP_DS);
++        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=DEP_DS;dependency_complete_amount=1;tick();
++        if(state_ref[a]!=WAVE_STATE_WAITCNT || !dut.u_dependency_tracker.wait_active[a] || !wait_satisfied_mask[a])
++            $fatal(1,"Completion/arm must use registered pre-edge counts");
++        inputs_idle();tick();finish_random();pass_case(case_name);
++
++        if(N>1) begin
++            case_name="multi_hot_wakeup_snapshot";
++            launch(P*N);
++            for(i=0;i<N;i=i+1) begin
++                accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++                dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=1;tick();
++                // With RR, the just-committed Wave need not be the next selected.
++                // Park every context after one Load, using the global reference.
++            end
++            for(i=0;i<N;i=i+1) begin
++                accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++                commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=1;tick();
++            end
++            inputs_idle();
++            // Single completion port ordinarily wakes one Wave per edge.
++            // A verification-only snapshot models simultaneous backend returns
++            // to exercise the multi-hot acknowledgement wiring, without adding
++            // any production bypass or extra completion port.
++            for(i=0;i<N;i=i+1) begin
++`ifdef M2_IVERILOG
++                // Icarus 12 cannot $deposit into vpiMemoryWord targets.
++                // This fallback is excluded from the final VCS compile.
++                dut.u_dependency_tracker.load_count[i]=0;
++`endif
++                count_ref[i][DEP_LOAD]=0;
++            end
++            deposit_load_snapshot=1;
++            #1;
++            deposit_load_snapshot=0;
++            if(wait_wakeup_mask!=='1) $fatal(1,"Multi-hot wake mask missing");
++            tick();finish_random();pass_case(case_name);
++        end
++
++        case_name="invalid_events_ignored";
++        inputs_idle();strict_events=0;commit_valid=1;commit_wave_id=0;
++        dependency_issue_valid=1;dependency_issue_amount=1;
++        dependency_complete_valid=1;dependency_complete_amount=1;
++        wait_arm_valid=1;wait_arm_wave_id=0;tick(); // FREE entry, all ignored.
++        if((1<<WAVE_ID_BITS)>N) begin
++            inputs_idle();strict_events=0;commit_valid=1;commit_wave_id=N;
++            dependency_issue_valid=1;dependency_issue_wave_id=N;dependency_issue_amount=1;
++            dependency_complete_valid=1;dependency_complete_wave_id=N;dependency_complete_amount=1;
++            wait_arm_valid=1;wait_arm_wave_id=N;tick();
++        end
++        launch(1);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=7;dependency_issue_amount=1;
++        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=7;dependency_complete_amount=1;
++        strict_events=0;tick();
++        inputs_idle();strict_events=0;dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_amount=0;
++        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_amount=0;tick();
++        finish_random();pass_case(case_name);
++
++        case_name="asynchronous_reset_discards_stalled_launch";
++        launch(P*N);
++        for(i=0;i<N+3;i=i+1) begin inputs_idle();tick();end
++        if(!dut.u_scheduler.locked || !selected_valid) $fatal(1,"Reset test did not lock a launch");
++        reset_system();launch(1);finish_random();pass_case(case_name);
++
++        case_name="asynchronous_reset_aborts_active_kernel";
++        launch(P*N);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
++        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=2;tick();
++        // Find and issue the original Wave again without committing others.
++        for(i=0;i<N;i=i+1) begin
++            accept_wave(j);
++            if(j==a) begin
++                prepare_commit(a,WAVE_STATE_READY);commit_is_wait=1;wait_arm_valid=1;
++                wait_arm_wave_id=a;wait_counter_mask=1;tick();
++                i=N;
++            end
++        end
++        if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Reset test did not create an active Wait");
++        reset_system();launch(33);finish_random();pass_case(case_name);
++
++        case_name="workgroup_id_crosses_65535";
++        launch(65536*P+1);
++        // Fast-forward an already-completed prefix. Only the boundary tail is
++        // simulated; lifecycle/counters of the tail still use the full top.
++        $deposit(dut.u_dispatcher.workgroup_cursor,WORKGROUP_ID_BITS'(65535));
++        $deposit(dut.u_dispatcher.wave_cursor,0);
++        $deposit(dut.u_dispatcher.waves_dispatched,33'(65535*((P+31)/32)));
++        $deposit(dut.u_dispatcher.waves_completed,33'(65535*((P+31)/32)));
++        next_wg_ref=65535;next_wave_ref=0;
++        dispatched_ref=65535*((P+31)/32);completed_ref=dispatched_ref;
++        finish_random();pass_case(case_name);
++
++        if(!cov_stall || !cov_full || !cov_wait || !cov_barrier || !cov_done_pending ||
++           !cov_reuse || !cov_net || !cov_nonblocking)
++            $fatal(1,"Missing M2 scenario coverage");
++        if(N>1 && !cov_concurrent) $fatal(1,"Missing independent-entry concurrency coverage");
++        if(N>1 && !cov_multiwake) $fatal(1,"Missing multi-hot wake coverage");
++        $display("M2 COVERAGE stalls=%0d full=%0d wait=%0d barrier=%0d pending_done=%0d reuse=%0d concurrent=%0d net=%0d multiwake=%0d nonblocking=%0d",
++            cov_stall,cov_full,cov_wait,cov_barrier,cov_done_pending,cov_reuse,cov_concurrent,cov_net,cov_multiwake,cov_nonblocking);
++        $display("TinyGPU M2: ALL %0d SCENARIO GROUPS PASSED N=%0d WG=%0d cycles=%0d checks=%0d",cases,N,P,cycles,checks);
++        $finish;
++    end
++    initial begin #1000000;$fatal(1,"M2 whole-subsystem timeout");end
++`ifdef FSDB
++    initial begin
++        $fsdbDumpfile("waves/tinygpu_m2.fsdb");
++        $fsdbDumpvars(0,tb_wave_control_subsystem);
++        $fsdbDumpMDA();
++    end
++`endif
++    initial if($test$plusargs("VCD")) begin
++        $dumpfile("waves/tinygpu_m2.vcd");$dumpvars(0,tb_wave_control_subsystem);
++    end
++endmodule

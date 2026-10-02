@@ -1,0 +1,31 @@
+
+[TEST] mat_add
+[INFO] Kernel completed in 292 cycles
+[PASS] mat_add
+
+[TEST] partial_block
+[INFO] Kernel completed in 292 cycles
+[PASS] partial_block
+
+[TEST] mat_mul
+[INFO] Kernel completed in 417 cycles
+[PASS] mat_mul
+
+[TEST] divergence
+[INFO] Kernel completed in 107 cycles
+[PASS] divergence
+
+[TEST] bank_conflict
+[INFO] Kernel completed in 89 cycles
+[PASS] bank_conflict
+
+[TEST] zero_thread
+[INFO] Kernel completed in 0 cycles
+[PASS] zero_thread
+[PASS] Legacy UOP opcode coverage 0-9 and F
+[INFO] Legacy UOP checker examined 0 instruction(s)
+
+========================================
+TinyGPU baseline: ALL 6 TESTS PASSED
+========================================
+- tb/tb_gpu.sv:480: Verilog $finish

@@ -178,9 +178,9 @@
 // - round_robin_pointer = 0;
 // - locked              = 0;
 // - locked_wave_id      = 0;
-// - selected_valid      = 0;
-// - selected_wave_id    = 0;
-// - schedule_fire       = 0.
+// The Context Table resets ready_mask to zero in the integrated subsystem.
+// With no candidates and the lock cleared, selected_valid, selected_wave_id
+// and schedule_fire settle to zero. There is no combinational reset gate.
 //
 // Verification requirements
 // -----------------------------------------------------------------------------
@@ -243,7 +243,7 @@ module wave_scheduler #(
     integer scan_comb;
     integer index_comb;
 
-    // 后续由你逐块实现
+    // Round-Robin pointer, selection and backpressure lock.
 always_ff @(posedge clk or negedge rst_n)begin
 	if(!rst_n)
 		round_robin_pointer <= '0;
@@ -272,19 +272,17 @@ always_comb begin
 	end
 
 end	
-aalways_comb begin
+always_comb begin
     selected_valid   = '0;
     selected_wave_id = '0;
 
-    if (rst_n) begin
-        if (locked) begin
-            selected_valid   = 1'b1;
-            selected_wave_id = locked_wave_id;
-        end
-        else if (candidate_valid) begin
-            selected_valid   = 1'b1;
-            selected_wave_id = candidate_wave_id;
-        end
+    if (locked) begin
+        selected_valid   = 1'b1;
+        selected_wave_id = locked_wave_id;
+    end
+    else if (candidate_valid) begin
+        selected_valid   = 1'b1;
+        selected_wave_id = candidate_wave_id;
     end
 end
 assign schedule_fire = selected_valid && selected_ready;
@@ -303,4 +301,3 @@ always_ff @(posedge clk or negedge rst_n)begin
 end
 
 endmodule
-

@@ -1,0 +1,774 @@
+rtl/wave_context_table.sv:418:52: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+assign issue_wave_id_in_range   = (issue_wave_id   < NUM_CONTEXT_ENTRIES);
+                                   ~~~~~~~~~~~~~   ^ ~~~~~~~~~~~~~~~~~~~
+rtl/wave_context_table.sv:419:52: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+assign commit_wave_id_in_range  = (commit_wave_id  < NUM_CONTEXT_ENTRIES);
+                                   ~~~~~~~~~~~~~~  ^ ~~~~~~~~~~~~~~~~~~~
+rtl/wave_context_table.sv:420:52: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+assign release_wave_id_in_range = (release_wave_id < NUM_CONTEXT_ENTRIES);
+                                   ~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~~~
+rtl/wave_context_table.sv:421:52: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+assign read_wave_id_in_range    = (read_wave_id    < NUM_CONTEXT_ENTRIES);
+                                   ~~~~~~~~~~~~    ^ ~~~~~~~~~~~~~~~~~~~
+rtl/wave_context_table.sv:462:20: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                        free_entry_id = scan_comb;
+                                      ~ ^~~~~~~~~
+rtl/wave_context_table.sv:462:20: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                        free_entry_id = scan_comb;
+                                      ~ ^~~~~~~~~
+rtl/wave_dispatcher.sv:368:38: warning: implicit conversion expands from 32 to 33 bits [-Wwidth-expand]
+assign saved_thread_count_extended = saved_thread_count;  //总线程数
+                                   ~ ^~~~~~~~~~~~~~~~~~
+rtl/wave_dispatcher.sv:369:36: warning: implicit conversion expands from 32 to 33 bits [-Wwidth-expand]
+assign workgroup_cursor_extended = workgroup_cursor; //第几个workgroup
+                                 ~ ^~~~~~~~~~~~~~~~
+rtl/wave_dispatcher.sv:370:31: warning: implicit conversion expands from 5 to 33 bits [-Wwidth-expand]
+assign wave_cursor_extended = wave_cursor; //第几个wave
+                            ~ ^~~~~~~~~~~
+rtl/wave_dispatcher.sv:398:17: warning: comparison of differently signed types ('integer' and 'logic[32:0]') [-Wsign-compare]
+                if (lane_comb < active_lanes_extended)
+                    ~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dispatcher.sv:474:2: warning: 'case' missing 'default' label [-Wcase-default]
+        case (dispatcher_state) 
+        ^~~~
+rtl/wave_scheduler.sv:256:38: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+                (schedule_fire && selected_wave_id == NUM_WAVE_CONTEXTS-1) ?
+                                  ~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~~~~~
+rtl/wave_scheduler.sv:265:16: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+                index_comb = scan_comb + round_robin_pointer;
+                             ^~~~~~~~~ ~
+rtl/wave_scheduler.sv:265:26: warning: arithmetic between operands of different types ('integer' and 'logic[1:0]') [-Warith-op-mismatch]
+                index_comb = scan_comb + round_robin_pointer;
+                             ~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~~~
+rtl/wave_scheduler.sv:270:24: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                        candidate_wave_id = index_comb;
+                                          ~ ^~~~~~~~~~
+rtl/wave_scheduler.sv:270:24: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                        candidate_wave_id = index_comb;
+                                          ~ ^~~~~~~~~~
+rtl/wave_dependency_tracker.sv:247:35: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+        (dependency_issue_wave_id < NUM_WAVE_CONTEXTS)) begin
+         ~~~~~~~~~~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:250:36: warning: comparison of differently signed types ('dependency_kind_t' (aka 'logic[2:0]') and 'int') [-Wsign-compare]
+            (dependency_issue_kind < DEPENDENCY_COUNTER_COUNT) &&
+             ~~~~~~~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:256:38: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+        (dependency_complete_wave_id < NUM_WAVE_CONTEXTS)) begin
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:259:39: warning: comparison of differently signed types ('dependency_kind_t' (aka 'logic[2:0]') and 'int') [-Wsign-compare]
+            (dependency_complete_kind < DEPENDENCY_COUNTER_COUNT) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:288:30: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                        (dependency_issue_wave_id == load_scan_comb) &&
+                         ~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:290:34: warning: arithmetic between operands of different types ('logic[6:0]' and 'logic[5:0]') [-Warith-op-mismatch]
+                        load_sum_comb = load_sum_comb + dependency_issue_amount;
+                                        ~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:292:33: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                        (dependency_complete_wave_id == load_scan_comb) &&
+                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:294:26: warning: implicit conversion expands from 6 to 7 bits [-Wwidth-expand]
+                        load_decrement_comb = dependency_complete_amount;
+                                            ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:309:21: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                        (release_wave_id == load_scan_ff))
+                         ~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:313:19: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                        (alloc_wave_id == load_scan_ff))
+                         ~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:391:39: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_issue_wave_id == store_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:398:42: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_complete_wave_id == store_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:426:39: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_issue_wave_id == ds_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:433:42: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_complete_wave_id == ds_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:461:39: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_issue_wave_id == km_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:468:42: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_complete_wave_id == km_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:496:39: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_issue_wave_id == async_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:503:42: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_complete_wave_id == async_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:531:39: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_issue_wave_id == tensor_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:538:42: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_complete_wave_id == tensor_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:566:39: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_issue_wave_id == x_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:573:42: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            (dependency_complete_wave_id == x_scan_comb) &&
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:600:52: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+        else if (release_valid && (release_wave_id == counter_scan_ff)) begin
+                                   ~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:608:47: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+        else if (alloc_fire && (alloc_wave_id == counter_scan_ff)) begin
+                                ~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:635:27: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+        (wait_arm_wave_id < NUM_WAVE_CONTEXTS)) begin
+         ~~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:691:36: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                 (wait_arm_wave_id == wait_scan_ff)) begin
+                  ~~~~~~~~~~~~~~~~ ^~ ~~~~~~~~~~~~
+tb/m2_protocol_checker.sv:51:44: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            if(alloc_fire && (alloc_wave_id>=N || !free_mask[alloc_wave_id]))
+                              ~~~~~~~~~~~~~^~~
+tb/m2_protocol_checker.sv:53:50: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            if(schedule_fire && (selected_wave_id>=N || !ready_mask[selected_wave_id]))
+                                 ~~~~~~~~~~~~~~~~^~~
+tb/m2_protocol_checker.sv:55:46: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+            if(retire_fire && (retire_wave_id>=N || !done_mask[retire_wave_id] ||
+                               ~~~~~~~~~~~~~~^~~
+tb/m2_protocol_checker.sv:59:34: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                if(commit_wave_id>=N || !issued_mask[commit_wave_id])
+                   ~~~~~~~~~~~~~~^~~
+tb/m2_protocol_checker.sv:67:33: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                wait_arm_wave_id>=N || !issued_mask[wait_arm_wave_id]))
+                ~~~~~~~~~~~~~~~~^~~
+tb/tb_wave_control_subsystem.sv:158:23: warning: comparison of differently signed types ('integer' and 'dependency_kind_t' (aka 'logic[2:0]')) [-Wsign-compare]
+        limit_of=(kind==DEP_KM)?31:63;
+                  ~~~~^~~~~~~~
+tb/tb_wave_control_subsystem.sv:161:14: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+        case(kind)
+             ^~~~
+tb/tb_wave_control_subsystem.sv:162:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_LOAD:actual_count=dut.u_dependency_tracker.load_count[id];
+            ^~~~~~~~
+tb/tb_wave_control_subsystem.sv:162:35: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_LOAD:actual_count=dut.u_dependency_tracker.load_count[id];
+                                 ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:162:35: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_LOAD:actual_count=dut.u_dependency_tracker.load_count[id];
+                                 ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:163:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_STORE:actual_count=dut.u_dependency_tracker.store_count[id];
+            ^~~~~~~~~
+tb/tb_wave_control_subsystem.sv:163:36: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_STORE:actual_count=dut.u_dependency_tracker.store_count[id];
+                                  ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:163:36: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_STORE:actual_count=dut.u_dependency_tracker.store_count[id];
+                                  ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:164:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_DS:actual_count=dut.u_dependency_tracker.ds_count[id];
+            ^~~~~~
+tb/tb_wave_control_subsystem.sv:164:33: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_DS:actual_count=dut.u_dependency_tracker.ds_count[id];
+                               ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:164:33: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_DS:actual_count=dut.u_dependency_tracker.ds_count[id];
+                               ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:165:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_KM:actual_count=dut.u_dependency_tracker.km_count[id];
+            ^~~~~~
+tb/tb_wave_control_subsystem.sv:165:33: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_KM:actual_count=dut.u_dependency_tracker.km_count[id];
+                               ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:165:33: warning: implicit conversion expands from 5 to 32 bits [-Wwidth-expand]
+            DEP_KM:actual_count=dut.u_dependency_tracker.km_count[id];
+                               ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:166:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_ASYNC:actual_count=dut.u_dependency_tracker.async_count[id];
+            ^~~~~~~~~
+tb/tb_wave_control_subsystem.sv:166:36: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_ASYNC:actual_count=dut.u_dependency_tracker.async_count[id];
+                                  ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:166:36: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_ASYNC:actual_count=dut.u_dependency_tracker.async_count[id];
+                                  ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:167:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_TENSOR:actual_count=dut.u_dependency_tracker.tensor_count[id];
+            ^~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:167:37: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_TENSOR:actual_count=dut.u_dependency_tracker.tensor_count[id];
+                                   ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:167:37: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_TENSOR:actual_count=dut.u_dependency_tracker.tensor_count[id];
+                                   ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:168:34: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            default:actual_count=dut.u_dependency_tracker.x_count[id];
+                                ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:168:34: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            default:actual_count=dut.u_dependency_tracker.x_count[id];
+                                ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:172:14: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+        case(kind)
+             ^~~~
+tb/tb_wave_control_subsystem.sv:173:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_LOAD:threshold_input=wait_load_threshold;
+            ^~~~~~~~
+tb/tb_wave_control_subsystem.sv:173:38: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_LOAD:threshold_input=wait_load_threshold;
+                                    ~^~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:173:38: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_LOAD:threshold_input=wait_load_threshold;
+                                    ~^~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:174:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_STORE:threshold_input=wait_store_threshold;
+            ^~~~~~~~~
+tb/tb_wave_control_subsystem.sv:174:39: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_STORE:threshold_input=wait_store_threshold;
+                                     ~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:174:39: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_STORE:threshold_input=wait_store_threshold;
+                                     ~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:175:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_DS:threshold_input=wait_ds_threshold;
+            ^~~~~~
+tb/tb_wave_control_subsystem.sv:175:36: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_DS:threshold_input=wait_ds_threshold;
+                                  ~^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:175:36: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_DS:threshold_input=wait_ds_threshold;
+                                  ~^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:176:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_KM:threshold_input=wait_km_threshold;
+            ^~~~~~
+tb/tb_wave_control_subsystem.sv:176:36: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_KM:threshold_input=wait_km_threshold;
+                                  ~^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:176:36: warning: implicit conversion expands from 5 to 32 bits [-Wwidth-expand]
+            DEP_KM:threshold_input=wait_km_threshold;
+                                  ~^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:177:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_ASYNC:threshold_input=wait_async_threshold;
+            ^~~~~~~~~
+tb/tb_wave_control_subsystem.sv:177:39: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_ASYNC:threshold_input=wait_async_threshold;
+                                     ~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:177:39: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_ASYNC:threshold_input=wait_async_threshold;
+                                     ~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:178:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_TENSOR:threshold_input=wait_tensor_threshold;
+            ^~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:178:40: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_TENSOR:threshold_input=wait_tensor_threshold;
+                                      ~^~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:178:40: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_TENSOR:threshold_input=wait_tensor_threshold;
+                                      ~^~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:179:37: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            default:threshold_input=wait_x_threshold;
+                                   ~^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:179:37: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            default:threshold_input=wait_x_threshold;
+                                   ~^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:183:14: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+        case(kind)
+             ^~~~
+tb/tb_wave_control_subsystem.sv:184:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_LOAD:actual_threshold=dut.u_dependency_tracker.saved_wait_load_threshold[id];
+            ^~~~~~~~
+tb/tb_wave_control_subsystem.sv:184:39: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_LOAD:actual_threshold=dut.u_dependency_tracker.saved_wait_load_threshold[id];
+                                     ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:184:39: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_LOAD:actual_threshold=dut.u_dependency_tracker.saved_wait_load_threshold[id];
+                                     ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:185:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_STORE:actual_threshold=dut.u_dependency_tracker.saved_wait_store_threshold[id];
+            ^~~~~~~~~
+tb/tb_wave_control_subsystem.sv:185:40: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_STORE:actual_threshold=dut.u_dependency_tracker.saved_wait_store_threshold[id];
+                                      ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:185:40: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_STORE:actual_threshold=dut.u_dependency_tracker.saved_wait_store_threshold[id];
+                                      ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:186:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_DS:actual_threshold=dut.u_dependency_tracker.saved_wait_ds_threshold[id];
+            ^~~~~~
+tb/tb_wave_control_subsystem.sv:186:37: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_DS:actual_threshold=dut.u_dependency_tracker.saved_wait_ds_threshold[id];
+                                   ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:186:37: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_DS:actual_threshold=dut.u_dependency_tracker.saved_wait_ds_threshold[id];
+                                   ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:187:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_KM:actual_threshold=dut.u_dependency_tracker.saved_wait_km_threshold[id];
+            ^~~~~~
+tb/tb_wave_control_subsystem.sv:187:37: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_KM:actual_threshold=dut.u_dependency_tracker.saved_wait_km_threshold[id];
+                                   ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:187:37: warning: implicit conversion expands from 5 to 32 bits [-Wwidth-expand]
+            DEP_KM:actual_threshold=dut.u_dependency_tracker.saved_wait_km_threshold[id];
+                                   ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:188:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_ASYNC:actual_threshold=dut.u_dependency_tracker.saved_wait_async_threshold[id];
+            ^~~~~~~~~
+tb/tb_wave_control_subsystem.sv:188:40: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_ASYNC:actual_threshold=dut.u_dependency_tracker.saved_wait_async_threshold[id];
+                                      ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:188:40: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_ASYNC:actual_threshold=dut.u_dependency_tracker.saved_wait_async_threshold[id];
+                                      ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:189:13: warning: comparison of different types in 'case' statement ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+            DEP_TENSOR:actual_threshold=dut.u_dependency_tracker.saved_wait_tensor_threshold[id];
+            ^~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:189:41: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            DEP_TENSOR:actual_threshold=dut.u_dependency_tracker.saved_wait_tensor_threshold[id];
+                                       ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:189:41: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            DEP_TENSOR:actual_threshold=dut.u_dependency_tracker.saved_wait_tensor_threshold[id];
+                                       ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:190:38: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            default:actual_threshold=dut.u_dependency_tracker.saved_wait_x_threshold[id];
+                                    ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:190:38: warning: implicit conversion expands from 6 to 32 bits [-Wwidth-expand]
+            default:actual_threshold=dut.u_dependency_tracker.saved_wait_x_threshold[id];
+                                    ~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:195:45: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+        if(id<N) resident_ref=(state_ref[id]!=WAVE_STATE_FREE);
+                               ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:201:47: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            if(wait_arm_valid && resident_ref(wait_arm_wave_id)) begin
+                                              ^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:201:47: warning: implicit conversion expands from 2 to 32 bits [-Wwidth-expand]
+            if(wait_arm_valid && resident_ref(wait_arm_wave_id)) begin
+                                              ^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:258:22: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+                case(state_ref[id])
+                     ^~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:259:21: warning: comparison of different types in 'case' statement ('wave_context_state_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+                    WAVE_STATE_FREE:f_ref[id]=1;
+                    ^~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:260:21: warning: comparison of different types in 'case' statement ('wave_context_state_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+                    WAVE_STATE_READY:r_ref[id]=1;
+                    ^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:261:21: warning: comparison of different types in 'case' statement ('wave_context_state_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+                    WAVE_STATE_ISSUED:is_ref[id]=1;
+                    ^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:262:21: warning: comparison of different types in 'case' statement ('wave_context_state_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+                    WAVE_STATE_WAITCNT:wt_ref[id]=1;
+                    ^~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:263:21: warning: comparison of different types in 'case' statement ('wave_context_state_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+                    WAVE_STATE_BARRIER:b_ref[id]=1;
+                    ^~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:264:21: warning: comparison of different types in 'case' statement ('wave_context_state_t' (aka 'logic[2:0]') and 'integer') [-Wcase-type]
+                    WAVE_STATE_DONE:d_ref[id]=1;
+                    ^~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:278:57: warning: comparison of differently signed types ('wave_context_state_t' (aka 'logic[2:0]') and 'logic signed[2:0]') [-Wsign-compare]
+                if(dut.u_context_table.context_state[id]!==3'(state_ref[id]) ||
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:293:49: warning: comparison of differently signed types ('logic[32:0]' and 'logic signed[32:0]') [-Wsign-compare]
+            if(dut.u_dispatcher.waves_dispatched!==33'(dispatched_ref) ||
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:294:48: warning: comparison of differently signed types ('logic[32:0]' and 'logic signed[32:0]') [-Wsign-compare]
+               dut.u_dispatcher.waves_completed!==33'(completed_ref)) $fatal(1,"Kernel accounting mismatch");
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:298:29: warning: comparison of differently signed types ('logic[1:0]' and 'logic signed[1:0]') [-Wsign-compare]
+            if(alloc_wave_id!==WAVE_ID_BITS'(expected_free)) $fatal(1,"FREE allocator priority mismatch");
+               ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:309:42: warning: comparison of differently signed types ('logic[31:0]' and 'logic signed[31:0]') [-Wsign-compare]
+                   dut.alloc_workgroup_id!==WORKGROUP_ID_BITS'(next_wg_ref) ||
+                   ~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:309:62: warning: useless cast from 'integer' to the same type [-Wuseless-cast]
+                   dut.alloc_workgroup_id!==WORKGROUP_ID_BITS'(next_wg_ref) ||
+                                            ~~~~~~~~~~~~~~~~~^ ~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:310:40: warning: comparison of differently signed types ('logic[4:0]' and 'logic signed[4:0]') [-Wsign-compare]
+                   dut.alloc_wave_index!==WG_WAVE_ID_BITS'(next_wave_ref) ||
+                   ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:311:48: warning: comparison of differently signed types ('logic[5:0]' and 'logic signed[5:0]') [-Wsign-compare]
+                   dut.alloc_waves_in_workgroup!==WG_WAVE_COUNT_BITS'(wg_waves) ||
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:312:48: warning: comparison of differently signed types ('logic[31:0]' and 'logic signed[31:0]') [-Wsign-compare]
+                   dut.alloc_global_thread_base!==GLOBAL_THREAD_ID_BITS'(base))
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:312:72: warning: useless cast from 'integer' to the same type [-Wuseless-cast]
+                   dut.alloc_global_thread_base!==GLOBAL_THREAD_ID_BITS'(base))
+                                                  ~~~~~~~~~~~~~~~~~~~~~^ ~~~~
+tb/tb_wave_control_subsystem.sv:323:67: warning: comparison of differently signed types ('logic[1:0]' and 'logic signed[1:0]') [-Wsign-compare]
+            if(selected_valid!==expected_valid || selected_wave_id!==WAVE_ID_BITS'(expected_select))
+                                                  ~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:326:55: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+            if(selected_context_valid!==(state_ref[id]!=WAVE_STATE_FREE) ||
+                                         ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:327:30: warning: comparison of differently signed types ('wave_context_state_t' (aka 'logic[2:0]') and 'logic signed[2:0]') [-Wsign-compare]
+               selected_state!==3'(state_ref[id]) || selected_pc!==pc_ref[id] || selected_exec!==exec_ref[id] ||
+               ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:329:37: warning: comparison of differently signed types ('logic[31:0]' and 'logic signed[31:0]') [-Wsign-compare]
+               selected_workgroup_id!==WORKGROUP_ID_BITS'(wg_ref[id]) ||
+               ~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:329:57: warning: useless cast from 'integer' to the same type [-Wuseless-cast]
+               selected_workgroup_id!==WORKGROUP_ID_BITS'(wg_ref[id]) ||
+                                       ~~~~~~~~~~~~~~~~~^ ~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:330:35: warning: comparison of differently signed types ('logic[4:0]' and 'logic signed[4:0]') [-Wsign-compare]
+               selected_wave_index!==WG_WAVE_ID_BITS'(wi_ref[id]) ||
+               ~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:331:43: warning: comparison of differently signed types ('logic[5:0]' and 'logic signed[5:0]') [-Wsign-compare]
+               selected_waves_in_workgroup!==WG_WAVE_COUNT_BITS'(wc_ref[id]) ||
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:332:43: warning: comparison of differently signed types ('logic[31:0]' and 'logic signed[31:0]') [-Wsign-compare]
+               selected_global_thread_base!==GLOBAL_THREAD_ID_BITS'(base_ref[id])) $fatal(1,"Selected Context payload mismatch");
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:332:67: warning: useless cast from 'integer' to the same type [-Wuseless-cast]
+               selected_global_thread_base!==GLOBAL_THREAD_ID_BITS'(base_ref[id])) $fatal(1,"Selected Context payload mismatch");
+                                             ~~~~~~~~~~~~~~~~~~~~~^ ~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:335:30: warning: comparison of differently signed types ('logic[1:0]' and 'logic signed[1:0]') [-Wsign-compare]
+            if(retire_wave_id!==WAVE_ID_BITS'(expected_release) || dut.wave_completed!==retire_fire)
+               ~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:347:61: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            issue_ok=dependency_issue_valid && resident_ref(dependency_issue_wave_id) && dependency_issue_kind<7 && dependency_issue_amount!=0;
+                                                            ^~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:347:61: warning: implicit conversion expands from 2 to 32 bits [-Wwidth-expand]
+            issue_ok=dependency_issue_valid && resident_ref(dependency_issue_wave_id) && dependency_issue_kind<7 && dependency_issue_amount!=0;
+                                                            ^~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:348:67: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            complete_ok=dependency_complete_valid && resident_ref(dependency_complete_wave_id) && dependency_complete_kind<7 && dependency_complete_amount!=0;
+                                                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:348:67: warning: implicit conversion expands from 2 to 32 bits [-Wwidth-expand]
+            complete_ok=dependency_complete_valid && resident_ref(dependency_complete_wave_id) && dependency_complete_kind<7 && dependency_complete_amount!=0;
+                                                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:349:51: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            arm_ok=wait_arm_valid && resident_ref(wait_arm_wave_id); arm_good=arm_satisfied_ref();
+                                                  ^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:349:51: warning: implicit conversion expands from 2 to 32 bits [-Wwidth-expand]
+            arm_ok=wait_arm_valid && resident_ref(wait_arm_wave_id); arm_good=arm_satisfied_ref();
+                                                  ^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:357:33: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                if(state_ref[id]==WAVE_STATE_WAITCNT) cov_wait=cov_wait+1;
+                   ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:358:33: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                if(state_ref[id]==WAVE_STATE_BARRIER) cov_barrier=cov_barrier+1;
+                   ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:359:33: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                if(state_ref[id]==WAVE_STATE_DONE && !all_counters_zero_mask[id]) cov_done_pending=cov_done_pending+1;
+                   ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:360:33: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                if(state_ref[id]==WAVE_STATE_READY && !all_counters_zero_mask[id]) cov_nonblocking=cov_nonblocking+1;
+                   ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:364:63: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+                kernel_ref=(thread_count==0)?2:1; threads_ref=thread_count; launch_pc_ref=start_pc;
+                                                             ~^~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:370:89: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            else if(selected_valid && !selected_ready) begin locked_ref=1;locked_id_ref=selected_wave_id; end
+                                                                                       ~^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:370:89: warning: implicit conversion expands from 2 to 32 bits [-Wwidth-expand]
+            else if(selected_valid && !selected_ready) begin locked_ref=1;locked_id_ref=selected_wave_id; end
+                                                                                       ~^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:372:46: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                if(arm_ok && wait_arm_wave_id==id) begin
+                             ~~~~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:378:54: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                    if((retire_fire && retire_wave_id==id)||(alloc_fire && alloc_wave_id==id)) count_ref[id][kind]=0;
+                                       ~~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:378:89: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                    if((retire_fire && retire_wave_id==id)||(alloc_fire && alloc_wave_id==id)) count_ref[id][kind]=0;
+                                                                           ~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:381:64: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                        if(issue_ok && dependency_issue_wave_id==id && dependency_issue_kind==kind) net=net+dependency_issue_amount;
+                                       ~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:381:93: warning: comparison of differently signed types ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wsign-compare]
+                        if(issue_ok && dependency_issue_wave_id==id && dependency_issue_kind==kind) net=net+dependency_issue_amount;
+                                                                       ~~~~~~~~~~~~~~~~~~~~~^~~~~~
+tb/tb_wave_control_subsystem.sv:381:105: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+                        if(issue_ok && dependency_issue_wave_id==id && dependency_issue_kind==kind) net=net+dependency_issue_amount;
+                                                                                                        ^~~~
+tb/tb_wave_control_subsystem.sv:381:108: warning: arithmetic between operands of different types ('integer' and 'logic[5:0]') [-Warith-op-mismatch]
+                        if(issue_ok && dependency_issue_wave_id==id && dependency_issue_kind==kind) net=net+dependency_issue_amount;
+                                                                                                        ~~~^~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:382:70: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                        if(complete_ok && dependency_complete_wave_id==id && dependency_complete_kind==kind) net=net-dependency_complete_amount;
+                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:382:102: warning: comparison of differently signed types ('dependency_kind_t' (aka 'logic[2:0]') and 'integer') [-Wsign-compare]
+                        if(complete_ok && dependency_complete_wave_id==id && dependency_complete_kind==kind) net=net-dependency_complete_amount;
+                                                                             ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~
+tb/tb_wave_control_subsystem.sv:382:114: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+                        if(complete_ok && dependency_complete_wave_id==id && dependency_complete_kind==kind) net=net-dependency_complete_amount;
+                                                                                                                 ^~~~
+tb/tb_wave_control_subsystem.sv:382:117: warning: arithmetic between operands of different types ('integer' and 'logic[5:0]') [-Warith-op-mismatch]
+                        if(complete_ok && dependency_complete_wave_id==id && dependency_complete_kind==kind) net=net-dependency_complete_amount;
+                                                                                                                 ~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:387:49: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                if(retire_fire && retire_wave_id==id) clear_entry(id);
+                                  ~~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:388:52: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                else if(alloc_fire && alloc_wave_id==id) begin
+                                      ~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:398:55: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                else if(commit_valid && commit_wave_id==id && state_ref[id]==WAVE_STATE_ISSUED) begin
+                                        ~~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:398:76: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                else if(commit_valid && commit_wave_id==id && state_ref[id]==WAVE_STATE_ISSUED) begin
+                                                              ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:399:35: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+                    state_ref[id]=commit_result;program_ref[id]=program_ref[id]+1;
+                                 ~^~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:399:35: warning: implicit conversion expands from 3 to 32 bits [-Wwidth-expand]
+                    state_ref[id]=commit_result;program_ref[id]=program_ref[id]+1;
+                                 ~^~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:406:58: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                else if((wake_before[id] && state_ref[id]==WAVE_STATE_WAITCNT)||
+                                            ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:407:67: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                        (barrier_release_mask[id] && state_ref[id]==WAVE_STATE_BARRIER)) state_ref[id]=WAVE_STATE_READY;
+                                                     ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:408:58: warning: comparison of differently signed types ('logic[1:0]' and 'integer') [-Wsign-compare]
+                else if(schedule_fire && selected_wave_id==id && state_ref[id]==WAVE_STATE_READY) state_ref[id]=WAVE_STATE_ISSUED;
+                                         ~~~~~~~~~~~~~~~~^~~~
+tb/tb_wave_control_subsystem.sv:408:79: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                else if(schedule_fire && selected_wave_id==id && state_ref[id]==WAVE_STATE_READY) state_ref[id]=WAVE_STATE_ISSUED;
+                                                                 ~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:435:48: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+            inputs_idle();start=1;thread_count=threads;start_pc=64'h1000+cycles*4;tick();
+                                              ~^~~~~~~
+tb/tb_wave_control_subsystem.sv:435:74: warning: implicit conversion changes signedness from 'integer' to 'logic[63:0]' [-Wsign-conversion]
+            inputs_idle();start=1;thread_count=threads;start_pc=64'h1000+cycles*4;tick();
+                                                                        ~^~~~~~
+tb/tb_wave_control_subsystem.sv:446:16: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            id=selected_wave_id;selected_ready=1;tick();inputs_idle();
+              ~^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:446:16: warning: implicit conversion expands from 2 to 32 bits [-Wwidth-expand]
+            id=selected_wave_id;selected_ready=1;tick();inputs_idle();
+              ~^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:451:57: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+            inputs_idle();commit_valid=1;commit_wave_id=id;requested_next_state=result_state;
+                                                       ~^~
+tb/tb_wave_control_subsystem.sv:451:57: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+            inputs_idle();commit_valid=1;commit_wave_id=id;requested_next_state=result_state;
+                                                       ~^~
+tb/tb_wave_control_subsystem.sv:453:63: warning: implicit conversion changes signedness from 'integer' to 'logic[63:0]' [-Wsign-conversion]
+            commit_vcc_write_enable=1;commit_vcc=64'habcdef00+ordinal_ref[id];
+                                                             ~^~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:455:57: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+            commit_m0_write_enable=1;commit_m0=32'h8000+ordinal_ref[id];
+                                                       ~^~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:461:83: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+            inputs_idle();dependency_complete_valid=1;dependency_complete_wave_id=id;
+                                                                                 ~^~
+tb/tb_wave_control_subsystem.sv:461:83: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+            inputs_idle();dependency_complete_valid=1;dependency_complete_wave_id=id;
+                                                                                 ~^~
+tb/tb_wave_control_subsystem.sv:462:38: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+            dependency_complete_kind=kind;dependency_complete_amount=amount;tick();inputs_idle();
+                                    ~^~~~
+tb/tb_wave_control_subsystem.sv:462:38: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+            dependency_complete_kind=kind;dependency_complete_amount=amount;tick();inputs_idle();
+                                    ~^~~~
+tb/tb_wave_control_subsystem.sv:462:70: warning: implicit conversion changes signedness from 'integer' to 'logic[5:0]' [-Wsign-conversion]
+            dependency_complete_kind=kind;dependency_complete_amount=amount;tick();inputs_idle();
+                                                                    ~^~~~~~
+tb/tb_wave_control_subsystem.sv:462:70: warning: implicit conversion truncates from 32 to 6 bits [-Wwidth-trunc]
+            dependency_complete_kind=kind;dependency_complete_amount=amount;tick();inputs_idle();
+                                                                    ~^~~~~~
+tb/tb_wave_control_subsystem.sv:469:20: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+            offset=$urandom_range(0,N-1); chosen=-1;
+                  ~^~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:471:56: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+                if(chosen<0 && state_ref[(id+offset)%N]==WAVE_STATE_ISSUED) chosen=(id+offset)%N;
+                               ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:475:79: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                    0:begin dependency_issue_valid=1;dependency_issue_wave_id=id;
+                                                                             ~^~
+tb/tb_wave_control_subsystem.sv:475:79: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                    0:begin dependency_issue_valid=1;dependency_issue_wave_id=id;
+                                                                             ~^~
+tb/tb_wave_control_subsystem.sv:476:51: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+                            dependency_issue_kind=kind;dependency_issue_amount=3;end
+                                                 ~^~~~
+tb/tb_wave_control_subsystem.sv:476:51: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+                            dependency_issue_kind=kind;dependency_issue_amount=3;end
+                                                 ~^~~~
+tb/tb_wave_control_subsystem.sv:478:76: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=id;wait_counter_mask=7'(1<<kind);
+                                                                          ~^~
+tb/tb_wave_control_subsystem.sv:478:76: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=id;wait_counter_mask=7'(1<<kind);
+                                                                          ~^~
+tb/tb_wave_control_subsystem.sv:478:97: warning: implicit conversion changes signedness from 'logic signed[6:0]' to 'logic[6:0]' [-Wsign-conversion]
+                        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=id;wait_counter_mask=7'(1<<kind);
+                                                                                               ~^~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:487:34: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+                chosen=-1;offset=$urandom_range(0,N*7-1);
+                                ~^~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:493:77: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                    dependency_complete_valid=1;dependency_complete_wave_id=chosen/7;
+                                                                           ~^~~~~~~~
+tb/tb_wave_control_subsystem.sv:493:77: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                    dependency_complete_valid=1;dependency_complete_wave_id=chosen/7;
+                                                                           ~^~~~~~~~
+tb/tb_wave_control_subsystem.sv:494:46: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+                    dependency_complete_kind=chosen%7;dependency_complete_amount=1;
+                                            ~^~~~~~~~
+tb/tb_wave_control_subsystem.sv:494:46: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+                    dependency_complete_kind=chosen%7;dependency_complete_amount=1;
+                                            ~^~~~~~~~
+tb/tb_wave_control_subsystem.sv:516:23: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+        random_unused=$urandom(seed);
+                     ~^~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:545:69: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+            dependency_complete_valid=1;dependency_complete_wave_id=a;
+                                                                   ~^
+tb/tb_wave_control_subsystem.sv:545:69: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+            dependency_complete_valid=1;dependency_complete_wave_id=a;
+                                                                   ~^
+tb/tb_wave_control_subsystem.sv:546:38: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+            dependency_complete_kind=k;dependency_complete_amount=1;strict_events=0;tick();
+                                    ~^
+tb/tb_wave_control_subsystem.sv:546:38: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+            dependency_complete_kind=k;dependency_complete_amount=1;strict_events=0;tick();
+                                    ~^
+tb/tb_wave_control_subsystem.sv:548:63: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+            dependency_issue_valid=1;dependency_issue_wave_id=a;
+                                                             ~^
+tb/tb_wave_control_subsystem.sv:548:63: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+            dependency_issue_valid=1;dependency_issue_wave_id=a;
+                                                             ~^
+tb/tb_wave_control_subsystem.sv:549:35: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+            dependency_issue_kind=k;dependency_issue_amount=limit_of(k);tick();
+                                 ~^
+tb/tb_wave_control_subsystem.sv:549:35: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+            dependency_issue_kind=k;dependency_issue_amount=limit_of(k);tick();
+                                 ~^
+tb/tb_wave_control_subsystem.sv:549:61: warning: implicit conversion changes signedness from 'integer' to 'logic[5:0]' [-Wsign-conversion]
+            dependency_issue_kind=k;dependency_issue_amount=limit_of(k);tick();
+                                                           ~^~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:549:61: warning: implicit conversion truncates from 32 to 6 bits [-Wwidth-trunc]
+            dependency_issue_kind=k;dependency_issue_amount=limit_of(k);tick();
+                                                           ~^~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:551:63: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+            dependency_issue_valid=1;dependency_issue_wave_id=a;
+                                                             ~^
+tb/tb_wave_control_subsystem.sv:551:63: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+            dependency_issue_valid=1;dependency_issue_wave_id=a;
+                                                             ~^
+tb/tb_wave_control_subsystem.sv:552:35: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+            dependency_issue_kind=k;dependency_issue_amount=63;
+                                 ~^
+tb/tb_wave_control_subsystem.sv:552:35: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+            dependency_issue_kind=k;dependency_issue_amount=63;
+                                 ~^
+tb/tb_wave_control_subsystem.sv:553:69: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+            dependency_complete_valid=1;dependency_complete_wave_id=a;
+                                                                   ~^
+tb/tb_wave_control_subsystem.sv:553:69: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+            dependency_complete_valid=1;dependency_complete_wave_id=a;
+                                                                   ~^
+tb/tb_wave_control_subsystem.sv:554:38: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+            dependency_complete_kind=k;dependency_complete_amount=63;tick();
+                                    ~^
+tb/tb_wave_control_subsystem.sv:554:38: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+            dependency_complete_kind=k;dependency_complete_amount=63;tick();
+                                    ~^
+tb/tb_wave_control_subsystem.sv:556:63: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+            dependency_issue_valid=1;dependency_issue_wave_id=a;
+                                                             ~^
+tb/tb_wave_control_subsystem.sv:556:63: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+            dependency_issue_valid=1;dependency_issue_wave_id=a;
+                                                             ~^
+tb/tb_wave_control_subsystem.sv:557:35: warning: implicit conversion changes signedness from 'integer' to 'dependency_kind_t' (aka 'logic[2:0]') [-Wsign-conversion]
+            dependency_issue_kind=k;dependency_issue_amount=1;strict_events=0;tick();
+                                 ~^
+tb/tb_wave_control_subsystem.sv:557:35: warning: implicit conversion truncates from 32 to 3 bits [-Wwidth-trunc]
+            dependency_issue_kind=k;dependency_issue_amount=1;strict_events=0;tick();
+                                 ~^
+tb/tb_wave_control_subsystem.sv:560:60: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=0;tick();
+                                                          ~^
+tb/tb_wave_control_subsystem.sv:560:60: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=0;tick();
+                                                          ~^
+tb/tb_wave_control_subsystem.sv:561:24: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+        if(state_ref[a]!=WAVE_STATE_READY || dut.u_dependency_tracker.wait_active[a]) $fatal(1,"Empty Wait should be immediate");
+           ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:563:60: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask='1;wait_load_threshold=2;tick();
+                                                          ~^
+tb/tb_wave_control_subsystem.sv:563:60: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask='1;wait_load_threshold=2;tick();
+                                                          ~^
+tb/tb_wave_control_subsystem.sv:564:24: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+        if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Multi-class Wait did not sleep");
+           ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:568:24: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+        if(state_ref[a]!=WAVE_STATE_READY || all_counters_zero_mask[a]) $fatal(1,"Nonzero threshold/wakeup failed");
+           ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:575:59: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_DS;dependency_issue_amount=1;tick();
+                                                         ~^
+tb/tb_wave_control_subsystem.sv:575:59: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_DS;dependency_issue_amount=1;tick();
+                                                         ~^
+tb/tb_wave_control_subsystem.sv:577:60: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=7'(1<<DEP_DS);
+                                                          ~^
+tb/tb_wave_control_subsystem.sv:577:60: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=7'(1<<DEP_DS);
+                                                          ~^
+tb/tb_wave_control_subsystem.sv:578:65: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=DEP_DS;dependency_complete_amount=1;tick();
+                                                               ~^
+tb/tb_wave_control_subsystem.sv:578:65: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=DEP_DS;dependency_complete_amount=1;tick();
+                                                               ~^
+tb/tb_wave_control_subsystem.sv:579:24: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+        if(state_ref[a]!=WAVE_STATE_WAITCNT || !dut.u_dependency_tracker.wait_active[a] || !wait_satisfied_mask[a])
+           ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:588:67: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=1;tick();
+                                                                 ~^
+tb/tb_wave_control_subsystem.sv:588:67: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=1;tick();
+                                                                 ~^
+tb/tb_wave_control_subsystem.sv:594:68: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=1;tick();
+                                                                  ~^
+tb/tb_wave_control_subsystem.sv:594:68: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=1;tick();
+                                                                  ~^
+tb/tb_wave_control_subsystem.sv:628:59: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=7;dependency_issue_amount=1;
+                                                         ~^
+tb/tb_wave_control_subsystem.sv:628:59: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=7;dependency_issue_amount=1;
+                                                         ~^
+tb/tb_wave_control_subsystem.sv:629:65: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=7;dependency_complete_amount=1;
+                                                               ~^
+tb/tb_wave_control_subsystem.sv:629:65: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=7;dependency_complete_amount=1;
+                                                               ~^
+tb/tb_wave_control_subsystem.sv:631:89: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        inputs_idle();strict_events=0;dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_amount=0;
+                                                                                       ~^
+tb/tb_wave_control_subsystem.sv:631:89: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        inputs_idle();strict_events=0;dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_amount=0;
+                                                                                       ~^
+tb/tb_wave_control_subsystem.sv:632:65: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_amount=0;tick();
+                                                               ~^
+tb/tb_wave_control_subsystem.sv:632:65: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_amount=0;tick();
+                                                               ~^
+tb/tb_wave_control_subsystem.sv:643:59: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=2;tick();
+                                                         ~^
+tb/tb_wave_control_subsystem.sv:643:59: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=2;tick();
+                                                         ~^
+tb/tb_wave_control_subsystem.sv:649:34: warning: implicit conversion changes signedness from 'integer' to 'logic[1:0]' [-Wsign-conversion]
+                wait_arm_wave_id=a;wait_counter_mask=1;tick();
+                                ~^
+tb/tb_wave_control_subsystem.sv:649:34: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                wait_arm_wave_id=a;wait_counter_mask=1;tick();
+                                ~^
+tb/tb_wave_control_subsystem.sv:653:24: warning: comparison of differently signed types ('integer' and 'wave_context_state_t' (aka 'logic[2:0]')) [-Wsign-compare]
+        if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Reset test did not create an active Wait");
+           ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:660:69: warning: useless cast from 'int' to the same type [-Wuseless-cast]
+        $deposit(dut.u_dispatcher.workgroup_cursor,WORKGROUP_ID_BITS'(65535));
+                                                   ~~~~~~~~~~~~~~~~~^ ~~~~~

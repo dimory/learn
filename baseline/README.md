@@ -1,4 +1,4 @@
-# TinyGPU M1 CDNA5 upgrade baseline
+# TinyGPU M1 baseline and M2 Wave control subsystem
 
 This package integrates the current rewritten TinyGPU RTL as a synthesizable
 single-Core baseline and keeps all verification code in a separate directory.
@@ -114,3 +114,47 @@ It must also contain:
 
 Reference-model success is useful for validating Pattern encoding and expected
 results, but it does not replace the VCS RTL simulation.
+
+## M2 stage: final platform VCS2016 + Verdi2016
+
+`rtl/wave_control_subsystem.sv` connects the five completed M2 control modules.
+It has no additional registers. M2 uses separate RTL/TB filelists; the Legacy
+M1 `gpu_top.sv` and its existing run commands remain available.
+
+Use your existing VCS2016/Verdi2016 environment. Set `NOVAS_HOME` or
+`VERDI_HOME` to the Verdi2016 installation that contains
+`share/PLI/VCS/LINUX64/novas.tab` and `pli.a` to enable FSDB.
+
+```bash
+make preflight
+make m2             # N=4, 64 threads per Workgroup; VCS2016
+make m2_verdi       # matching FSDB; Verdi2016
+make m2_vcs_matrix  # all 8 parameter configurations; VCS2016
+make sim            # M1 six Patterns and Legacy UOP checker; VCS2016
+make verdi          # M1 FSDB; Verdi2016
+```
+
+For another configuration, use matching arguments for simulation and viewing:
+
+```bash
+./scripts/run_m2_vcs.sh 3 64
+./scripts/open_m2_verdi.sh 3 64
+```
+
+M2 compile/runtime logs are named `logs/m2_vcs_n<N>_wg<P>_*.log` and
+`logs/m2_vcs_n<N>_wg<P>.log`. Each configuration keeps its own FSDB:
+`waves/tinygpu_m2_n<N>_wg<P>.fsdb`. The matrix stops at the first failure and
+requires a complete PASS signature from every run.
+
+The supplied `logs/m2_results.json` records the completed Icarus 12.0 M2
+regression. `logs/m1_regression.log` records the completed Verilator 5.020
+M1 regression. VCS2016 and Verdi2016 were unavailable in this execution
+environment; their compile, simulation and waveform acceptance remain to be
+run on the final platform. See `M2_STAGE_REPORT.md` for scope and evidence.
+
+Optional supplementary commands, with these tools installed:
+
+```bash
+make m2_matrix      # Icarus, same 8 M2 configurations
+make m1_verilator  # Verilator 5 with timing support, M1
+```

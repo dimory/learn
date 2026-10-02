@@ -1,0 +1,73 @@
+  in instance: tb_gpu.dut.u_core.gen_lane[0].u_alu
+rtl/alu.sv:86:13: warning: 'case' missing 'default' label [-Wcase-default]
+            case (decoded_alu_arithmetic_mux)
+            ^~~~
+rtl/alu.sv:98:22: warning: no newline at end of file [-Wnewline-eof]
+`default_nettype wire
+                     ^
+rtl/register_file.sv:225:22: warning: no newline at end of file [-Wnewline-eof]
+`default_nettype wire
+                     ^
+rtl/wave_lsu.sv:470:46: warning: useless cast from 'logic[7:0]' to the same type [-Wuseless-cast]
+            memory_address[lane] <= ADDR_BITS'(rs[lane]);
+                                    ~~~~~~~~~^ ~~~~~~~~
+rtl/wave_lsu.sv:513:22: warning: no newline at end of file [-Wnewline-eof]
+`default_nettype wire
+                     ^
+rtl/memory_backend.sv:451:77: warning: comparison of differently signed types ('logic[1:0]' and 'int') [-Wsign-compare]
+                        if(memory_request_mask[lane] && (memory_address[lane][BANK_SEL_BITS-1:0] ==bank))
+                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ ^~~~~~
+rtl/memory_backend.sv:466:26: warning: implicit conversion changes signedness from 'logic signed[31:0]' to 'logic[1:0]' [-Wsign-conversion]
+                                grant_lane_id[bank] =lane; 
+                                                    ~^~~~
+rtl/memory_backend.sv:466:26: warning: implicit conversion truncates from 32 to 2 bits [-Wwidth-trunc]
+                                grant_lane_id[bank] =lane; 
+                                                    ~^~~~
+rtl/memory_backend.sv:578:22: warning: no newline at end of file [-Wnewline-eof]
+`default_nettype wire
+                     ^
+rtl/dispatcher.sv:264:55: warning: arithmetic between operands of different types ('logic[8:0]' and 'int') [-Warith-op-mismatch]
+assign total_blocks_extended = (thread_count_extended + THREADS_PER_BLOCK - 1 ) / THREADS_PER_BLOCK;
+                                ~~~~~~~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~
+rtl/dispatcher.sv:264:81: warning: arithmetic between operands of different types ('logic[31:0]' and 'int') [-Warith-op-mismatch]
+assign total_blocks_extended = (thread_count_extended + THREADS_PER_BLOCK - 1 ) / THREADS_PER_BLOCK;
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   ^ ~~~~~~~~~~~~~~~~~
+rtl/dispatcher.sv:451:41: warning: arithmetic between operands of different types ('logic[7:0]' and 'int') [-Warith-op-mismatch]
+                        dispatch_cursor * THREADS_PER_BLOCK;
+                        ~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~
+rtl/dispatcher.sv:461:39: warning: comparison of differently signed types ('integer' and 'logic[8:0]') [-Wsign-compare]
+                        if (lane_comb < remaining_threads)
+                            ~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~
+tb/tb_gpu.sv:153:15: warning: logical right shift of signed type 'integer' may have been intended to be an arithmetic shift [-Wsigned-logical-shift]
+        row = address >> 2;
+              ^~~~~~~
+tb/tb_gpu.sv:154:9: warning: 'case' missing 'default' label [-Wcase-default]
+        case (address & 3)
+        ^~~~
+tb/tb_gpu.sv:166:15: warning: logical right shift of signed type 'integer' may have been intended to be an arithmetic shift [-Wsigned-logical-shift]
+        row = address >> 2;
+              ^~~~~~~
+tb/tb_gpu.sv:261:26: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+        new_uop_errors = uop_error_count - reported_uop_error_count;
+                       ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_gpu.sv:261:42: warning: arithmetic between operands of different types ('logic[31:0]' and 'integer') [-Warith-op-mismatch]
+        new_uop_errors = uop_error_count - reported_uop_error_count;
+                         ~~~~~~~~~~~~~~~ ^ ~~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_gpu.sv:261:44: warning: implicit conversion changes signedness from 'integer' to 'logic[31:0]' [-Wsign-conversion]
+        new_uop_errors = uop_error_count - reported_uop_error_count;
+                                         ~ ^~~~~~~~~~~~~~~~~~~~~~~~
+tb/tb_gpu.sv:267:36: warning: implicit conversion changes signedness from 'logic[31:0]' to 'integer' [-Wsign-conversion]
+        reported_uop_error_count = uop_error_count;
+                                 ~ ^~~~~~~~~~~~~~~
+tb/tb_gpu.sv:296:34: warning: implicit conversion changes signedness from 'integer' to 'logic[7:0]' [-Wsign-conversion]
+            expect_data(16 + i, (2 * i), "mat_add C[i]");
+                                 ^~~~~
+tb/tb_gpu.sv:296:34: warning: implicit conversion truncates from 32 to 8 bits [-Wwidth-trunc]
+            expect_data(16 + i, (2 * i), "mat_add C[i]");
+                                 ^~~~~
+tb/tb_gpu.sv:320:34: warning: implicit conversion changes signedness from 'integer' to 'logic[7:0]' [-Wsign-conversion]
+            expect_data(16 + i, (2 * i), "partial valid lane");
+                                 ^~~~~
+tb/tb_gpu.sv:320:34: warning: implicit conversion truncates from 32 to 8 bits [-Wwidth-trunc]
+            expect_data(16 + i, (2 * i), "partial valid lane");
+                                 ^~~~~

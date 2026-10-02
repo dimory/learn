@@ -1,5 +1,20 @@
 # TinyGPU M1 validation report
 
+## 2026-10-03 baseline_1003 stage update
+
+The M1 RTL regression was actually executed here with **Verilator 5.020**:
+all six Patterns and Legacy UOP opcode coverage 0-9/F passed. The transcript
+is `logs/m1_regression.log`, and the compile log is
+`logs/m1_verilator_compile.log`. No Legacy execution RTL was changed for M2.
+
+The final acceptance platform remains **VCS2016 + Verdi2016**. Those tools
+were not available here, so this result is supplementary RTL evidence and
+does not claim a VCS2016 run. Rerun `make sim` and `make verdi` there.
+
+The original sections below retain the M1 design and earlier review record.
+For the completed M2 subsystem, eight-configuration regression, fixes and
+remaining platform acceptance, see `M2_STAGE_REPORT.md`.
+
 ## Baseline scope
 
 The RTL under `rtl/` is copied from `gpu1.zip` without functional rewrites,

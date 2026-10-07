@@ -258,17 +258,41 @@ localparam uop_function_t UOP_FUNCTION_TENSOR  = 8'd17;
 // Operand kinds
 // ============================================================================
 
-localparam int OPERAND_KIND_BITS = 3;
+localparam int OPERAND_KIND_BITS = 4;
 typedef logic [OPERAND_KIND_BITS-1:0] operand_kind_t;
 
-localparam operand_kind_t OPERAND_NONE      = 3'd0;
-localparam operand_kind_t OPERAND_SGPR      = 3'd1;
-localparam operand_kind_t OPERAND_VGPR      = 3'd2;
-localparam operand_kind_t OPERAND_SCC       = 3'd3;
-localparam operand_kind_t OPERAND_VCC       = 3'd4;
-localparam operand_kind_t OPERAND_EXEC      = 3'd5;
-localparam operand_kind_t OPERAND_M0        = 3'd6;
-localparam operand_kind_t OPERAND_IMMEDIATE = 3'd7;
+localparam operand_kind_t OPERAND_NONE      = 4'd0;
+localparam operand_kind_t OPERAND_SGPR      = 4'd1;
+localparam operand_kind_t OPERAND_VGPR      = 4'd2;
+localparam operand_kind_t OPERAND_SCC       = 4'd3;
+localparam operand_kind_t OPERAND_VCC       = 4'd4;
+localparam operand_kind_t OPERAND_EXEC      = 4'd5;
+localparam operand_kind_t OPERAND_M0        = 4'd6;
+localparam operand_kind_t OPERAND_IMMEDIATE = 4'd7;
+localparam operand_kind_t OPERAND_TTMP      = 4'd8;
+
+localparam uop_function_t UOP_FUNCTION_AND = 8'd18;
+localparam uop_function_t UOP_FUNCTION_OR  = 8'd19;
+localparam uop_function_t UOP_FUNCTION_XOR = 8'd20;
+localparam uop_function_t UOP_FUNCTION_SHL = 8'd21;
+localparam uop_function_t UOP_FUNCTION_SHR = 8'd22;
+
+typedef struct packed {
+    dependency_counter_mask_t mask;
+    logic [5:0] load_threshold, store_threshold, ds_threshold;
+    logic [4:0] km_threshold;
+    logic [5:0] async_threshold, tensor_threshold, x_threshold;
+} m3_wait_spec_t;
+
+typedef logic [3:0] m3_fault_t;
+localparam m3_fault_t M3_FAULT_NONE        = 4'd0;
+localparam m3_fault_t M3_FAULT_UNSUPPORTED = 4'd1;
+localparam m3_fault_t M3_FAULT_OPERAND     = 4'd2;
+localparam m3_fault_t M3_FAULT_RF_RANGE    = 4'd3;
+localparam m3_fault_t M3_FAULT_FETCH       = 4'd4;
+localparam m3_fault_t M3_FAULT_MEMORY      = 4'd5;
+localparam m3_fault_t M3_FAULT_LAUNCH      = 4'd6;
+localparam m3_fault_t M3_FAULT_ENCODING    = 4'd7;
 
 // ============================================================================
 // Branch conditions
@@ -381,7 +405,164 @@ typedef struct packed {
     logic                                    write_pc;
     logic                                    end_program;
     logic                                    illegal;
+    // M3 additions preserve all preceding M1 function/operand encodings.
+    logic [63:0]                             src0_immediate;
+    logic [63:0]                             src1_immediate;
+    logic [63:0]                             src2_immediate;
+    logic                                    compare_less;
+    logic                                    mem_gvs;
+    m3_wait_spec_t                            wait_spec;
 } decoded_uop_t;
+
+// Payloads deliberately exclude wave_id. Every parameterized port carries a
+// matching WAVE_ID_BITS sideband, stored and transferred with its payload.
+typedef struct packed {
+    cdna_pc_t pc;
+    cdna_exec_mask_t exec_mask;
+    cdna_vcc_t vcc;
+    logic scc;
+    cdna_data_t m0;
+    cdna_workgroup_id_t workgroup_id;
+    cdna_workgroup_wave_id_t wave_index;
+    cdna_workgroup_wave_count_t waves_in_workgroup;
+    cdna_global_thread_id_t global_thread_base;
+    logic [24:0] dispatch_index;
+} m3_context_t;
+
+typedef struct packed {
+    m3_context_t context_data;
+    logic [95:0] instruction;
+    logic [2:0] inst_dwords;
+    m3_fault_t fault;
+} m3_fetch_payload_t;
+
+typedef struct packed {
+    m3_context_t context_data;
+    logic [95:0] instruction;
+    decoded_uop_t uop;
+    m3_fault_t fault;
+} m3_decoded_payload_t;
+
+typedef struct packed {
+    m3_decoded_payload_t decoded;
+    logic [2047:0] src0, src1, src2; // 32 lanes x 64 bits per operand.
+} m3_operand_payload_t;
+
+typedef struct packed {
+    cdna_pc_t origin_pc, next_pc;
+    logic [31:0] instruction0;
+    inst_format_t inst_format;
+    logic [11:0] isa_opcode;
+    logic is_wait, is_end;
+    m3_wait_spec_t wait_spec;
+    logic exec_write, vcc_write, scc_write, m0_write;
+    cdna_exec_mask_t exec_data;
+    cdna_vcc_t vcc_data;
+    logic scc_data;
+    cdna_data_t m0_data;
+} m3_commit_t;
+
+typedef struct packed {
+    logic commit_needed;
+    m3_commit_t commit_data;
+    operand_kind_t dst_kind;
+    cdna_reg_index_t dst_index;
+    logic [4:0] dst_count;
+    logic [31:0] write_mask;
+    logic [2047:0] data; // VGPR uses low DWORD of each 64-bit lane slot.
+    logic clear_busy, suppress_write;
+} m3_result_t;
+
+typedef struct packed {
+    cdna_transaction_id_t transaction_id;
+    dependency_kind_t kind;
+    mem_space_t space;
+    mem_operation_t operation;
+    cdna_workgroup_id_t workgroup_id;
+    logic [31:0] active_mask;
+    logic [31:0] group_segment_bytes;
+    logic [2047:0] addresses;
+    logic [1023:0] store_data;
+} m3_memory_request_t;
+
+typedef struct packed {
+    cdna_transaction_id_t transaction_id;
+    logic [1023:0] load_data;
+    logic error;
+} m3_memory_response_t;
+
+
+// M4 physical backend types. IDs at each layer have distinct owners.
+typedef struct packed {
+    logic [7:0] command_slot;
+    mem_space_t space;
+    mem_operation_t operation;
+    logic [63:0] sector_address;
+    logic [31:0] lane_mask;
+    logic [95:0] lane_word_index;
+    logic [255:0] store_data;
+    logic [31:0] byte_enable;
+} m4_sector_transaction_t;
+typedef struct packed {
+    logic [7:0] command_slot;
+    mem_space_t space;
+    mem_operation_t operation;
+    logic [63:0] sector_address;
+} m4_transaction_metadata_t;
+typedef struct packed {
+    logic [7:0] physical_id;
+    mem_operation_t operation;
+    logic [63:0] sector_address;
+    logic [255:0] store_data;
+    logic [31:0] byte_enable;
+} m4_cache_request_t;
+typedef struct packed {
+    logic [7:0] physical_id;
+    logic [255:0] load_data;
+    logic error;
+} m4_cache_response_t;
+typedef struct packed {
+    logic [7:0] client_id;
+    logic is_write;
+    logic [63:0] sector_address;
+    logic [255:0] store_data;
+    logic [31:0] byte_enable;
+} m4_lower_request_t;
+typedef struct packed {
+    logic [7:0] client_id;
+    logic [255:0] load_data;
+    logic error;
+} m4_lower_response_t;
+typedef struct packed {
+    logic [7:0] bus_id;
+    logic is_write;
+    logic [63:0] sector_address;
+    logic [255:0] store_data;
+    logic [31:0] byte_enable;
+} m4_external_request_t;
+typedef struct packed {
+    logic [7:0] bus_id;
+    logic [255:0] load_data;
+    logic error;
+} m4_external_response_t;
+
+function automatic m3_commit_t m3_sequential_commit(input m3_decoded_payload_t p);
+    m3_commit_t c;
+    logic [63:0] next_address;
+    begin
+        c = '0;
+        next_address = p.context_data.pc + (64'(p.uop.inst_dwords) << 2);
+        c.origin_pc = p.context_data.pc;
+        c.next_pc = {7'b0, next_address[56:2], 2'b0};
+        c.instruction0 = p.instruction[31:0];
+        c.inst_format = p.uop.inst_format;
+        c.isa_opcode = p.uop.isa_opcode;
+        c.is_wait = p.uop.uop_class == UOP_CLASS_WAIT;
+        c.is_end = p.uop.end_program;
+        c.wait_spec = p.uop.wait_spec;
+        m3_sequential_commit = c;
+    end
+endfunction
 
 endpackage
 

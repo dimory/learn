@@ -1,0 +1,50 @@
+[
+  {
+    "contexts": 1,
+    "threads_per_workgroup": 64,
+    "status": "PASS",
+    "log": "logs/m2_n1_wg64.log"
+  },
+  {
+    "contexts": 3,
+    "threads_per_workgroup": 64,
+    "status": "PASS",
+    "log": "logs/m2_n3_wg64.log"
+  },
+  {
+    "contexts": 4,
+    "threads_per_workgroup": 64,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg64.log"
+  },
+  {
+    "contexts": 5,
+    "threads_per_workgroup": 64,
+    "status": "PASS",
+    "log": "logs/m2_n5_wg64.log"
+  },
+  {
+    "contexts": 8,
+    "threads_per_workgroup": 64,
+    "status": "PASS",
+    "log": "logs/m2_n8_wg64.log"
+  },
+  {
+    "contexts": 4,
+    "threads_per_workgroup": 1,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg1.log"
+  },
+  {
+    "contexts": 4,
+    "threads_per_workgroup": 33,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg33.log"
+  },
+  {
+    "contexts": 4,
+    "threads_per_workgroup": 97,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg97.log"
+  }
+]

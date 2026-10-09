@@ -1,0 +1,14 @@
+[
+  {
+    "scope": "rtl",
+    "status": "PASS",
+    "log": "logs/m2_slang_rtl_1007.log",
+    "arguments": "--timescale=1ns/1ns -f sim/filelist_m2_rtl.f --top wave_control_subsystem"
+  },
+  {
+    "scope": "tb",
+    "status": "PASS",
+    "log": "logs/m2_slang_tb_1007.log",
+    "arguments": "--timescale=1ns/1ns -Wno-multiple-always-assigns -f sim/filelist_m2_rtl.f -f sim/filelist_m2_tb.f --top tb_wave_control_subsystem"
+  }
+]

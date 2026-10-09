@@ -1,0 +1,38 @@
+rtl/wave_scheduler.sv:210:8: error: design element does not have a time scale defined but others in the design do
+module wave_scheduler #(
+       ^~~~~~~~~~~~~~
+rtl/wave_dispatcher.sv:432:17: error: variable 'workgroup_cursor' driven by always_ff procedure cannot be written to by any other process [-Wmultiple-always-assigns]
+                workgroup_cursor <= '0;
+                ^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:660:18: note: also assigned here
+        $deposit(dut.u_dispatcher.workgroup_cursor,WORKGROUP_ID_BITS'(65535));
+                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dispatcher.sv:433:17: error: variable 'wave_cursor' driven by always_ff procedure cannot be written to by any other process [-Wmultiple-always-assigns]
+                wave_cursor      <= '0;
+                ^~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:661:18: note: also assigned here
+        $deposit(dut.u_dispatcher.wave_cursor,0);
+                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dispatcher.sv:497:17: error: variable 'waves_dispatched' driven by always_ff procedure cannot be written to by any other process [-Wmultiple-always-assigns]
+                waves_dispatched <= '0;
+                ^~~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:662:18: note: also assigned here
+        $deposit(dut.u_dispatcher.waves_dispatched,33'(65535*((P+31)/32)));
+                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dispatcher.sv:513:17: error: variable 'waves_completed' driven by always_ff procedure cannot be written to by any other process [-Wmultiple-always-assigns]
+                waves_completed <= '0;
+                ^~~~~~~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:663:18: note: also assigned here
+        $deposit(dut.u_dispatcher.waves_completed,33'(65535*((P+31)/32)));
+                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+rtl/wave_dependency_tracker.sv:307:25: error: variable 'load_count' driven by always_ff procedure cannot be written to by any other process [-Wmultiple-always-assigns]
+                        load_count[load_scan_ff] <= '0;
+                        ^~~~~~~~~~
+tb/tb_wave_control_subsystem.sv:107:26: note: also assigned here
+                $deposit(dut.u_dependency_tracker.load_count[deposit_index],6'd0);
+                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Top level design units:
+    tb_wave_control_subsystem
+
+
+Build failed: 6 errors, 0 warnings

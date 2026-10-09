@@ -1,5 +1,12 @@
 # TinyGPU M1 baseline and M2 Wave control subsystem
 
+The 2026-10-07 M2 VCS2016 testbench driver fix and revalidation are recorded in
+`M2_VERIFICATION_20261007.md`. All M2 testbench writes to DUT registers were
+removed; the RTL is unchanged and VCS compilation retains `-lca`.
+Start the final platform checks with
+`make m2_env`, then follow `M2_VCS2016_VERDI2016_GUIDE.md`.
+The paused M3 rewrite position is saved in `LEARNING_CHECKPOINT.md`.
+
 This package integrates the current rewritten TinyGPU RTL as a synthesizable
 single-Core baseline and keeps all verification code in a separate directory.
 Files whose names contain `old` are deliberately excluded.
@@ -67,6 +74,7 @@ handoff contract that M2 and later CDNA-oriented blocks will consume.
 Run checks that do not require an HDL simulator:
 
 ```bash
+make m2_env         # existing VCS/Verdi executables and readable FSDB PLI
 make preflight
 make reference
 ```
@@ -137,8 +145,8 @@ make verdi          # M1 FSDB; Verdi2016
 For another configuration, use matching arguments for simulation and viewing:
 
 ```bash
-./scripts/run_m2_vcs.sh 3 64
-./scripts/open_m2_verdi.sh 3 64
+make m2 M2_CONTEXTS=3 M2_WG_THREADS=64
+make m2_verdi M2_CONTEXTS=3 M2_WG_THREADS=64
 ```
 
 M2 compile/runtime logs are named `logs/m2_vcs_n<N>_wg<P>_*.log` and
@@ -146,11 +154,21 @@ M2 compile/runtime logs are named `logs/m2_vcs_n<N>_wg<P>_*.log` and
 `waves/tinygpu_m2_n<N>_wg<P>.fsdb`. The matrix stops at the first failure and
 requires a complete PASS signature from every run.
 
-The supplied `logs/m2_results.json` records the completed Icarus 12.0 M2
-regression. `logs/m1_regression.log` records the completed Verilator 5.020
+M2 runs require FSDB PLI by default. `make m2 M2_REQUIRE_FSDB=0` explicitly
+allows a simulation without waveform acceptance. Script launch through Make
+does not depend on executable permission surviving ZIP extraction.
+
+The supplied `logs/m2_results.json` records the freshly rerun Icarus 12.0 M2
+regression after the driver fix on 2026-10-07. Strict Slang analysis of the
+complete M2 RTL and testbench uses no multiple-driver diagnostic waiver.
+The current supplementary waveform is `waves/tinygpu_m2_n4_wg64.vcd`.
+Input M2 logs are in `logs/archive_input_zip/`; earlier results and waveforms
+are in `logs/archive_before_icpd_fix/` and `waves/archive_before_icpd_fix/`.
+`logs/m1_regression.log` records the historical Verilator 5.020
 M1 regression. VCS2016 and Verdi2016 were unavailable in this execution
 environment; their compile, simulation and waveform acceptance remain to be
-run on the final platform. See `M2_STAGE_REPORT.md` for scope and evidence.
+run on the final platform. See `M2_VERIFICATION_20261007.md` for current scope
+and evidence; `M2_STAGE_REPORT.md` is the historical 2026-10-03 report.
 
 Optional supplementary commands, with these tools installed:
 

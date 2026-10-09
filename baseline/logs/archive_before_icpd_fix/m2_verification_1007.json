@@ -1,0 +1,98 @@
+{
+  "source": "learn-main.zip",
+  "date": "2026-10-07",
+  "simulator": "Icarus Verilog 12.0",
+  "vcs2016": "NOT_RUN_NOT_INSTALLED",
+  "verdi2016": "NOT_RUN_NOT_INSTALLED",
+  "configurations": [
+    {
+      "contexts": 1,
+      "threads_per_workgroup": 64,
+      "status": "PASS",
+      "log": "logs/m2_n1_wg64.log",
+      "scenario_groups": 8,
+      "cycles": 705,
+      "checks": 48042,
+      "waveform": "waves/tinygpu_m2_n1_wg64.vcd"
+    },
+    {
+      "contexts": 3,
+      "threads_per_workgroup": 64,
+      "status": "PASS",
+      "log": "logs/m2_n3_wg64.log",
+      "scenario_groups": 9,
+      "cycles": 659,
+      "checks": 81902,
+      "waveform": "waves/tinygpu_m2_n3_wg64.vcd"
+    },
+    {
+      "contexts": 4,
+      "threads_per_workgroup": 64,
+      "status": "PASS",
+      "log": "logs/m2_n4_wg64.log",
+      "scenario_groups": 9,
+      "cycles": 661,
+      "checks": 100700,
+      "waveform": "waves/tinygpu_m2_n4_wg64.vcd"
+    },
+    {
+      "contexts": 5,
+      "threads_per_workgroup": 64,
+      "status": "PASS",
+      "log": "logs/m2_n5_wg64.log",
+      "scenario_groups": 9,
+      "cycles": 693,
+      "checks": 125010,
+      "waveform": "waves/tinygpu_m2_n5_wg64.vcd"
+    },
+    {
+      "contexts": 8,
+      "threads_per_workgroup": 64,
+      "status": "PASS",
+      "log": "logs/m2_n8_wg64.log",
+      "scenario_groups": 9,
+      "cycles": 768,
+      "checks": 203148,
+      "waveform": "waves/tinygpu_m2_n8_wg64.vcd"
+    },
+    {
+      "contexts": 4,
+      "threads_per_workgroup": 1,
+      "status": "PASS",
+      "log": "logs/m2_n4_wg1.log",
+      "scenario_groups": 9,
+      "cycles": 6235,
+      "checks": 947948,
+      "waveform": "waves/tinygpu_m2_n4_wg1.vcd"
+    },
+    {
+      "contexts": 4,
+      "threads_per_workgroup": 33,
+      "status": "PASS",
+      "log": "logs/m2_n4_wg33.log",
+      "scenario_groups": 9,
+      "cycles": 774,
+      "checks": 117876,
+      "waveform": "waves/tinygpu_m2_n4_wg33.vcd"
+    },
+    {
+      "contexts": 4,
+      "threads_per_workgroup": 97,
+      "status": "PASS",
+      "log": "logs/m2_n4_wg97.log",
+      "scenario_groups": 9,
+      "cycles": 738,
+      "checks": 112404,
+      "waveform": "waves/tinygpu_m2_n4_wg97.vcd"
+    }
+  ],
+  "scenario_group_total": 71,
+  "cycles_total": 11233,
+  "checks_total": 1737030,
+  "unchanged_systemverilog_files": 29,
+  "static_checks": {
+    "rtl": "PASS_NO_DIAGNOSTIC_WAIVER",
+    "rtl_and_tb": "PASS_WITH_MULTIPLE_ALWAYS_ASSIGNS_WAIVER_FOR_TEST_SNAPSHOTS",
+    "strict_tb_log": "logs/m2_slang_tb_strict_1007.log"
+  }
+}

@@ -1,0 +1,22 @@
+M2 environment paths: expected failure confirmed
+bash scripts/check_m2_env.sh
+FAIL: vcs is not in PATH; source your VCS2016/Verdi2016 setup.
+FAIL: verdi is not in PATH; source your VCS2016/Verdi2016 setup.
+FAIL: set NOVAS_HOME or VERDI_HOME to the Verdi2016 installation.
+make: *** [Makefile:46: m2_env] Error 1
+
+Missing VCS diagnostic: expected failure confirmed
+M2_REQUIRE_FSDB=1 bash scripts/run_m2_vcs.sh 4 64
+VCS is not in PATH. Source your VCS2016 setup, then run make m2_env.
+make: *** [Makefile:48: m2] Error 127
+
+Missing Verdi diagnostic: expected failure confirmed
+bash scripts/open_m2_verdi.sh 4 64
+Verdi is not in PATH. Source your Verdi2016 setup, then run make m2_env.
+make: *** [Makefile:52: m2_verdi] Error 127
+
+Invalid simulation Context count: expected failure confirmed
+Usage: scripts/run_m2_vcs.sh [positive Context count] [positive Workgroup thread count]
+
+Invalid viewer Workgroup size: expected failure confirmed
+Usage: scripts/open_m2_verdi.sh [positive Context count] [positive Workgroup thread count]

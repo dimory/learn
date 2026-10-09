@@ -1,0 +1,74 @@
+[
+  {
+    "groups": 8,
+    "contexts": 1,
+    "threads_per_workgroup": 64,
+    "cycles": 705,
+    "checks": 48042,
+    "status": "PASS",
+    "log": "logs/m2_n1_wg64.log"
+  },
+  {
+    "groups": 9,
+    "contexts": 3,
+    "threads_per_workgroup": 64,
+    "cycles": 659,
+    "checks": 81902,
+    "status": "PASS",
+    "log": "logs/m2_n3_wg64.log"
+  },
+  {
+    "groups": 9,
+    "contexts": 4,
+    "threads_per_workgroup": 64,
+    "cycles": 661,
+    "checks": 100700,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg64.log"
+  },
+  {
+    "groups": 9,
+    "contexts": 5,
+    "threads_per_workgroup": 64,
+    "cycles": 693,
+    "checks": 125010,
+    "status": "PASS",
+    "log": "logs/m2_n5_wg64.log"
+  },
+  {
+    "groups": 9,
+    "contexts": 8,
+    "threads_per_workgroup": 64,
+    "cycles": 768,
+    "checks": 203148,
+    "status": "PASS",
+    "log": "logs/m2_n8_wg64.log"
+  },
+  {
+    "groups": 9,
+    "contexts": 4,
+    "threads_per_workgroup": 1,
+    "cycles": 6235,
+    "checks": 947948,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg1.log"
+  },
+  {
+    "groups": 9,
+    "contexts": 4,
+    "threads_per_workgroup": 33,
+    "cycles": 774,
+    "checks": 117876,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg33.log"
+  },
+  {
+    "groups": 9,
+    "contexts": 4,
+    "threads_per_workgroup": 97,
+    "cycles": 738,
+    "checks": 112404,
+    "status": "PASS",
+    "log": "logs/m2_n4_wg97.log"
+  }
+]

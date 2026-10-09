@@ -10,7 +10,7 @@ configs=("1 64" "3 64" "4 64" "5 64" "8 64" "4 1" "4 33" "4 97")
 for config in "${configs[@]}"; do
     read -r contexts wg_threads <<< "$config"
     echo "VCS2016 M2: N=${contexts} WG=${wg_threads}" | tee -a "$summary"
-    if ! ./scripts/run_m2_vcs.sh "$contexts" "$wg_threads"; then
+    if ! bash scripts/run_m2_vcs.sh "$contexts" "$wg_threads"; then
         echo "FAIL N=${contexts} WG=${wg_threads}" | tee -a "$summary"
         exit 1
     fi

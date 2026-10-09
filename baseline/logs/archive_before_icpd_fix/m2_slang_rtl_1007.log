@@ -1,0 +1,6 @@
+Command: slang --timescale=1ns/1ns -f sim/filelist_m2_rtl.f --top wave_control_subsystem
+Top level design units:
+    wave_control_subsystem
+
+
+Build succeeded: 0 errors, 0 warnings

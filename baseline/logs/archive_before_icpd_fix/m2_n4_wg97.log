@@ -1,0 +1,13 @@
+VCD info: dumpfile waves/tinygpu_m2.vcd opened for output.
+[PASS] M2 zero_thread N=4 WG=97
+[PASS] M2 dispatch_edges_and_random_lifecycle N=4 WG=97
+[PASS] M2 all_counter_bounds_wait_and_safe_retire N=4 WG=97
+[PASS] M2 completion_and_wait_arm_same_edge N=4 WG=97
+[PASS] M2 multi_hot_wakeup_snapshot N=4 WG=97
+[PASS] M2 invalid_events_ignored N=4 WG=97
+[PASS] M2 asynchronous_reset_discards_stalled_launch N=4 WG=97
+[PASS] M2 asynchronous_reset_aborts_active_kernel N=4 WG=97
+[PASS] M2 workgroup_id_crosses_65535 N=4 WG=97
+M2 COVERAGE stalls=128 full=224 wait=376 barrier=45 pending_done=306 reuse=56 concurrent=74 net=7 multiwake=1 nonblocking=210
+TinyGPU M2: ALL 9 SCENARIO GROUPS PASSED N=4 WG=97 cycles=738 checks=112404
+tb/tb_wave_control_subsystem.sv:676: $finish called at 7410 (1ns)

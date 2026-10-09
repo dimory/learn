@@ -1,0 +1,6 @@
+Command: slang --timescale=1ns/1ns -Wno-multiple-always-assigns -f sim/filelist_m2_rtl.f -f sim/filelist_m2_tb.f --top tb_wave_control_subsystem
+Top level design units:
+    tb_wave_control_subsystem
+
+
+Build succeeded: 0 errors, 0 warnings

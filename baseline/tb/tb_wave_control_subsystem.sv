@@ -96,18 +96,6 @@ module tb_wave_control_subsystem;
     wave_control_subsystem #(.NUM_WAVE_CONTEXTS(N), .THREADS_PER_WORKGROUP(P)) dut (.*);
     logic strict_events=1;
     logic commit_is_wait=0;
-    logic deposit_load_snapshot=0;
-`ifndef M2_IVERILOG
-    // VCS2016 test-only deposit: no second procedural driver of always_ff.
-    // Static generated indices avoid variable hierarchical path selection.
-    genvar deposit_index;
-    generate
-        for(deposit_index=0;deposit_index<N;deposit_index=deposit_index+1) begin : snapshot_deposit
-            always @(posedge deposit_load_snapshot)
-                $deposit(dut.u_dependency_tracker.load_count[deposit_index],6'd0);
-        end
-    endgenerate
-`endif
     wave_context_state_t requested_next_state=WAVE_STATE_READY;
     assign commit_next_state=commit_is_wait ?
         (wait_arm_satisfied ? WAVE_STATE_READY : WAVE_STATE_WAITCNT) : requested_next_state;
@@ -146,8 +134,12 @@ module tb_wave_control_subsystem;
     integer dispatched_ref=0, completed_ref=0;
     logic [PC_BITS-1:0] launch_pc_ref=0;
     integer cycles=0, checks=0, cases=0;
+    // 0 = run the full regression; 1..9 = run one scenario group only.
+    // scenario_id is intentionally a TB signal so it is visible in FSDB/Verdi.
+    integer selected_scenario=0, scenario_id=0;
     integer cov_stall=0, cov_full=0, cov_wait=0, cov_barrier=0, cov_done_pending=0;
-    integer cov_reuse=0, cov_concurrent=0, cov_net=0, cov_multiwake=0, cov_nonblocking=0;
+    integer cov_reuse=0, cov_concurrent=0, cov_net=0, cov_nonblocking=0;
+    integer cov_wait_wakeups=0, cov_multi_barrier=0;
     logic used_entry[0:N-1];
     integer seed=32'h10032026, random_unused;
     integer i,j,k,a,step_index;
@@ -209,6 +201,19 @@ module tb_wave_control_subsystem;
     function automatic integer waves_for(input integer threads);
         waves_for=(threads/P)*((P+31)/32)+((threads%P)+31)/32;
     endfunction
+    function automatic logic scenario_enabled(input integer id);
+        begin
+            scenario_enabled=(selected_scenario==0)||(selected_scenario==id);
+        end
+    endfunction
+    task automatic begin_scenario(input integer id,input string name);
+        begin
+            scenario_id=id;
+            case_name=name;
+            $display("[SCENARIO %0d START] M2 %s N=%0d WG=%0d time=%0t",
+                id,name,N,P,$time);
+        end
+    endtask
 
     task automatic inputs_idle;
         begin
@@ -352,7 +357,8 @@ module tb_wave_control_subsystem;
             if(dut.alloc_valid && !dut.alloc_ready) cov_full=cov_full+1;
             if((alloc_fire && retire_fire)||(schedule_fire && commit_valid)) cov_concurrent=cov_concurrent+1;
             if(issue_ok && complete_ok && dependency_issue_wave_id==dependency_complete_wave_id && dependency_issue_kind==dependency_complete_kind) cov_net=cov_net+1;
-            if($countones(wake_before)>1) cov_multiwake=cov_multiwake+1;
+            cov_wait_wakeups=cov_wait_wakeups+$countones(wake_before);
+            if($countones(barrier_release_mask & barrier_mask)>1) cov_multi_barrier=cov_multi_barrier+1;
             for(id=0;id<N;id=id+1) begin
                 if(state_ref[id]==WAVE_STATE_WAITCNT) cov_wait=cov_wait+1;
                 if(state_ref[id]==WAVE_STATE_BARRIER) cov_barrier=cov_barrier+1;
@@ -508,80 +514,139 @@ module tb_wave_control_subsystem;
             inputs_idle();tick();
         end
     endtask
+    // Execute the Workgroup-ID boundary through normal subsystem events.
+    // No test process writes any DUT register or counter.
+    task automatic finish_workgroup_boundary;
+        integer timeout_cycles, cycle_limit, id, chosen, progress;
+        logic saw_65535, saw_65536, vcd_resumed;
+        begin
+            timeout_cycles=0;
+            cycle_limit=4*waves_for(threads_ref)+N+20;
+            saw_65535=0;saw_65536=0;vcd_resumed=0;progress=0;
+            // Keep the supplementary VCD small; resume before the boundary.
+            if($test$plusargs("VCD")) $dumpoff;
+            $display("[INFO] M2 Workgroup boundary: executing the full prefix through normal ports");
+            while(kernel_ref!=2 && timeout_cycles<cycle_limit) begin
+                inputs_idle();selected_ready=1;chosen=-1;
+                for(id=0;id<N;id=id+1)
+                    if(chosen<0 && state_ref[id]==WAVE_STATE_ISSUED) chosen=id;
+                if(chosen>=0) begin
+                    commit_valid=1;commit_wave_id=chosen;requested_next_state=WAVE_STATE_DONE;
+                end
+                if(alloc_fire && dut.alloc_workgroup_id==WORKGROUP_ID_BITS'(65535)) begin
+                    saw_65535=1;
+                    if(!vcd_resumed && $test$plusargs("VCD")) begin $dumpon;vcd_resumed=1;end
+                end
+                if(alloc_fire && dut.alloc_workgroup_id==WORKGROUP_ID_BITS'(65536)) saw_65536=1;
+                tick();timeout_cycles=timeout_cycles+1;
+                if((next_wg_ref/16384)>progress) begin
+                    progress=next_wg_ref/16384;
+                    $display("[INFO] M2 Workgroup boundary progress: workgroup=%0d N=%0d WG=%0d",next_wg_ref,N,P);
+                end
+            end
+            if(kernel_ref!=2 || !saw_65535 || !saw_65536)
+                $fatal(1,"Workgroup boundary was not completed through normal ports");
+            if(dispatched_ref!=waves_for(threads_ref) || completed_ref!=dispatched_ref || resident_mask!='0)
+                $fatal(1,"Workgroup boundary completion totals/residency mismatch");
+            inputs_idle();tick();
+        end
+    endtask
     task automatic pass_case(input string name);
-        begin cases=cases+1;$display("[PASS] M2 %s N=%0d WG=%0d",name,N,P);end
+        begin
+            cases=cases+1;
+            $display("[PASS] M2 SCENARIO %0d %s N=%0d WG=%0d time=%0t",
+                scenario_id,name,N,P,$time);
+        end
     endtask
     initial begin
         rst_n=1;start_pc=0;thread_count=0;
+        if(!$value$plusargs("M2_SCENARIO=%d",selected_scenario)) selected_scenario=0;
+        if(selected_scenario<0 || selected_scenario>9)
+            $fatal(1,"M2_SCENARIO must be 0 (all) or 1..9; got %0d",selected_scenario);
+        if(selected_scenario==5 && N<=1)
+            $fatal(1,"M2 scenario 5 requires NUM_WAVE_CONTEXTS > 1; N=%0d",N);
+        if(selected_scenario==0)
+            $display("[INFO] M2 running full scenario regression N=%0d WG=%0d",N,P);
+        else
+            $display("[INFO] M2 running only scenario %0d N=%0d WG=%0d",selected_scenario,N,P);
         random_unused=$urandom(seed);
         for(i=0;i<N;i=i+1) used_entry[i]=0;
         reset_model();reset_system();
-        case_name="zero_thread";
-        launch(0);
-        if(!done || alloc_fire || resident_mask!='0) $fatal(1,"Zero-thread launch failed");
-        inputs_idle();tick();pass_case(case_name);
 
-        case_name="dispatch_edges_and_random_lifecycle";
-        for(j=0;j<8;j=j+1) begin
-            case(j)
-                0:a=1;1:a=31;2:a=32;3:a=33;4:a=64;5:a=70;6:a=129;default:a=257;
-            endcase
-            launch(a);
-            // Hold execution to fill the table and lock a launch selection.
-            for(step_index=0;step_index<N+6;step_index=step_index+1) begin
-                inputs_idle();
-                if(step_index==2) begin start=1;start_pc=64'hbad00000;thread_count=0;end
-                tick(); // Busy-time launch is ignored, descriptor remains stable.
+        if(scenario_enabled(1)) begin
+            begin_scenario(1,"zero_thread");
+            launch(0);
+            if(!done || alloc_fire || resident_mask!='0) $fatal(1,"Zero-thread launch failed");
+            inputs_idle();tick();pass_case(case_name);
+        end
+
+        if(scenario_enabled(2)) begin
+            begin_scenario(2,"dispatch_edges_and_random_lifecycle");
+            for(j=0;j<8;j=j+1) begin
+                case(j)
+                    0:a=1;1:a=31;2:a=32;3:a=33;4:a=64;5:a=70;6:a=129;default:a=257;
+                endcase
+                launch(a);
+                // Hold execution to fill the table and lock a launch selection.
+                for(step_index=0;step_index<N+6;step_index=step_index+1) begin
+                    inputs_idle();
+                    if(step_index==2) begin start=1;start_pc=64'hbad00000;thread_count=0;end
+                    tick(); // Busy-time launch is ignored, descriptor remains stable.
+                end
+                finish_random();
             end
-            finish_random();
+            pass_case(case_name);
         end
-        pass_case(case_name);
 
-        case_name="all_counter_bounds_wait_and_safe_retire";
-        launch(1);
-        for(k=0;k<7;k=k+1) begin
-            accept_wave(a);
-            // Explicit negative underflow test, with no architectural commit.
-            dependency_complete_valid=1;dependency_complete_wave_id=a;
-            dependency_complete_kind=k;dependency_complete_amount=1;strict_events=0;tick();
-            prepare_commit(a,WAVE_STATE_READY);
-            dependency_issue_valid=1;dependency_issue_wave_id=a;
-            dependency_issue_kind=k;dependency_issue_amount=limit_of(k);tick();
+        if(scenario_enabled(3)) begin
+            begin_scenario(3,"all_counter_bounds_wait_and_safe_retire");
+            launch(1);
+            for(k=0;k<7;k=k+1) begin
+                accept_wave(a);
+                // Explicit negative underflow test, with no architectural commit.
+                dependency_complete_valid=1;dependency_complete_wave_id=a;
+                dependency_complete_kind=k;dependency_complete_amount=1;strict_events=0;tick();
+                prepare_commit(a,WAVE_STATE_READY);
+                dependency_issue_valid=1;dependency_issue_wave_id=a;
+                dependency_issue_kind=k;dependency_issue_amount=limit_of(k);tick();
+                accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
+                dependency_issue_valid=1;dependency_issue_wave_id=a;
+                dependency_issue_kind=k;dependency_issue_amount=63;
+                dependency_complete_valid=1;dependency_complete_wave_id=a;
+                dependency_complete_kind=k;dependency_complete_amount=63;tick();
+                accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
+                dependency_issue_valid=1;dependency_issue_wave_id=a;
+                dependency_issue_kind=k;dependency_issue_amount=1;strict_events=0;tick();
+            end
             accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-            dependency_issue_valid=1;dependency_issue_wave_id=a;
-            dependency_issue_kind=k;dependency_issue_amount=63;
-            dependency_complete_valid=1;dependency_complete_wave_id=a;
-            dependency_complete_kind=k;dependency_complete_amount=63;tick();
+            commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=0;tick();
+            if(state_ref[a]!=WAVE_STATE_READY || dut.u_dependency_tracker.wait_active[a]) $fatal(1,"Empty Wait should be immediate");
             accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-            dependency_issue_valid=1;dependency_issue_wave_id=a;
-            dependency_issue_kind=k;dependency_issue_amount=1;strict_events=0;tick();
+            commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask='1;wait_load_threshold=2;tick();
+            if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Multi-class Wait did not sleep");
+            complete_counter(a,DEP_LOAD,61);
+            for(k=1;k<7;k=k+1) complete_counter(a,k,limit_of(k));
+            inputs_idle();tick(); // Accept wakeup after the final comparison changed.
+            if(state_ref[a]!=WAVE_STATE_READY || all_counters_zero_mask[a]) $fatal(1,"Nonzero threshold/wakeup failed");
+            accept_wave(a);prepare_commit(a,WAVE_STATE_DONE);tick();
+            for(k=0;k<5;k=k+1) begin inputs_idle();tick();if(retire_fire) $fatal(1,"Retired with outstanding Load");end
+            complete_counter(a,DEP_LOAD,2);finish_random();pass_case(case_name);
         end
-        accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=0;tick();
-        if(state_ref[a]!=WAVE_STATE_READY || dut.u_dependency_tracker.wait_active[a]) $fatal(1,"Empty Wait should be immediate");
-        accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask='1;wait_load_threshold=2;tick();
-        if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Multi-class Wait did not sleep");
-        complete_counter(a,DEP_LOAD,61);
-        for(k=1;k<7;k=k+1) complete_counter(a,k,limit_of(k));
-        inputs_idle();tick(); // Accept wakeup after the final comparison changed.
-        if(state_ref[a]!=WAVE_STATE_READY || all_counters_zero_mask[a]) $fatal(1,"Nonzero threshold/wakeup failed");
-        accept_wave(a);prepare_commit(a,WAVE_STATE_DONE);tick();
-        for(k=0;k<5;k=k+1) begin inputs_idle();tick();if(retire_fire) $fatal(1,"Retired with outstanding Load");end
-        complete_counter(a,DEP_LOAD,2);finish_random();pass_case(case_name);
 
-        case_name="completion_and_wait_arm_same_edge";
-        launch(1);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_DS;dependency_issue_amount=1;tick();
-        accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-        commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=7'(1<<DEP_DS);
-        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=DEP_DS;dependency_complete_amount=1;tick();
-        if(state_ref[a]!=WAVE_STATE_WAITCNT || !dut.u_dependency_tracker.wait_active[a] || !wait_satisfied_mask[a])
-            $fatal(1,"Completion/arm must use registered pre-edge counts");
-        inputs_idle();tick();finish_random();pass_case(case_name);
+        if(scenario_enabled(4)) begin
+            begin_scenario(4,"completion_and_wait_arm_same_edge");
+            launch(1);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
+            dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_DS;dependency_issue_amount=1;tick();
+            accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
+            commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=7'(1<<DEP_DS);
+            dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=DEP_DS;dependency_complete_amount=1;tick();
+            if(state_ref[a]!=WAVE_STATE_WAITCNT || !dut.u_dependency_tracker.wait_active[a] || !wait_satisfied_mask[a])
+                $fatal(1,"Completion/arm must use registered pre-edge counts");
+            inputs_idle();tick();finish_random();pass_case(case_name);
+        end
 
-        if(N>1) begin
-            case_name="multi_hot_wakeup_snapshot";
+        if(scenario_enabled(5) && N>1) begin
+            begin_scenario(5,"multi_wave_wait_and_barrier_release");
             launch(P*N);
             for(i=0;i<N;i=i+1) begin
                 accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
@@ -593,89 +658,97 @@ module tb_wave_control_subsystem;
                 accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
                 commit_is_wait=1;wait_arm_valid=1;wait_arm_wave_id=a;wait_counter_mask=1;tick();
             end
-            inputs_idle();
-            // Single completion port ordinarily wakes one Wave per edge.
-            // A verification-only snapshot models simultaneous backend returns
-            // to exercise the multi-hot acknowledgement wiring, without adding
-            // any production bypass or extra completion port.
+            if(waitcnt_mask!=='1) $fatal(1,"Multi-Wave Wait did not park every Context");
+            // Complete one Wave per edge on the actual single completion port.
+            // The previous Wave wakes while the next completion is accepted.
             for(i=0;i<N;i=i+1) begin
-`ifdef M2_IVERILOG
-                // Icarus 12 cannot $deposit into vpiMemoryWord targets.
-                // This fallback is excluded from the final VCS compile.
-                dut.u_dependency_tracker.load_count[i]=0;
-`endif
-                count_ref[i][DEP_LOAD]=0;
+                complete_counter(i,DEP_LOAD,1);
+                if(wait_wakeup_mask!==N'(1<<i)) $fatal(1,"Tagged Wait wakeup mismatch");
             end
-            deposit_load_snapshot=1;
-            #1;
-            deposit_load_snapshot=0;
-            if(wait_wakeup_mask!=='1) $fatal(1,"Multi-hot wake mask missing");
-            tick();finish_random();pass_case(case_name);
-        end
-
-        case_name="invalid_events_ignored";
-        inputs_idle();strict_events=0;commit_valid=1;commit_wave_id=0;
-        dependency_issue_valid=1;dependency_issue_amount=1;
-        dependency_complete_valid=1;dependency_complete_amount=1;
-        wait_arm_valid=1;wait_arm_wave_id=0;tick(); // FREE entry, all ignored.
-        if((1<<WAVE_ID_BITS)>N) begin
-            inputs_idle();strict_events=0;commit_valid=1;commit_wave_id=N;
-            dependency_issue_valid=1;dependency_issue_wave_id=N;dependency_issue_amount=1;
-            dependency_complete_valid=1;dependency_complete_wave_id=N;dependency_complete_amount=1;
-            wait_arm_valid=1;wait_arm_wave_id=N;tick();
-        end
-        launch(1);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=7;dependency_issue_amount=1;
-        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=7;dependency_complete_amount=1;
-        strict_events=0;tick();
-        inputs_idle();strict_events=0;dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_amount=0;
-        dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_amount=0;tick();
-        finish_random();pass_case(case_name);
-
-        case_name="asynchronous_reset_discards_stalled_launch";
-        launch(P*N);
-        for(i=0;i<N+3;i=i+1) begin inputs_idle();tick();end
-        if(!dut.u_scheduler.locked || !selected_valid) $fatal(1,"Reset test did not lock a launch");
-        reset_system();launch(1);finish_random();pass_case(case_name);
-
-        case_name="asynchronous_reset_aborts_active_kernel";
-        launch(P*N);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
-        dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=2;tick();
-        // Find and issue the original Wave again without committing others.
-        for(i=0;i<N;i=i+1) begin
-            accept_wave(j);
-            if(j==a) begin
-                prepare_commit(a,WAVE_STATE_READY);commit_is_wait=1;wait_arm_valid=1;
-                wait_arm_wave_id=a;wait_counter_mask=1;tick();
-                i=N;
+            inputs_idle();tick();
+            if(waitcnt_mask!='0 || dut.u_dependency_tracker.wait_active!='0)
+                $fatal(1,"Wait wakeup did not acknowledge every parked Wave");
+            // The external barrier-release interface is genuinely multi-hot.
+            for(i=0;i<N;i=i+1) begin
+                accept_wave(a);prepare_commit(a,WAVE_STATE_BARRIER);tick();
             end
+            if(barrier_mask!=='1) $fatal(1,"Barrier did not park every Context");
+            inputs_idle();barrier_release_mask='1;tick();inputs_idle();
+            if(barrier_mask!='0 || ready_mask!=='1) $fatal(1,"Multi-hot barrier release failed");
+            finish_random();pass_case(case_name);
         end
-        if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Reset test did not create an active Wait");
-        reset_system();launch(33);finish_random();pass_case(case_name);
 
-        case_name="workgroup_id_crosses_65535";
-        launch(65536*P+1);
-        // Fast-forward an already-completed prefix. Only the boundary tail is
-        // simulated; lifecycle/counters of the tail still use the full top.
-        $deposit(dut.u_dispatcher.workgroup_cursor,WORKGROUP_ID_BITS'(65535));
-        $deposit(dut.u_dispatcher.wave_cursor,0);
-        $deposit(dut.u_dispatcher.waves_dispatched,33'(65535*((P+31)/32)));
-        $deposit(dut.u_dispatcher.waves_completed,33'(65535*((P+31)/32)));
-        next_wg_ref=65535;next_wave_ref=0;
-        dispatched_ref=65535*((P+31)/32);completed_ref=dispatched_ref;
-        finish_random();pass_case(case_name);
+        if(scenario_enabled(6)) begin
+            begin_scenario(6,"invalid_events_ignored");
+            inputs_idle();strict_events=0;commit_valid=1;commit_wave_id=0;
+            dependency_issue_valid=1;dependency_issue_amount=1;
+            dependency_complete_valid=1;dependency_complete_amount=1;
+            wait_arm_valid=1;wait_arm_wave_id=0;tick(); // FREE entry, all ignored.
+            if((1<<WAVE_ID_BITS)>N) begin
+                inputs_idle();strict_events=0;commit_valid=1;commit_wave_id=N;
+                dependency_issue_valid=1;dependency_issue_wave_id=N;dependency_issue_amount=1;
+                dependency_complete_valid=1;dependency_complete_wave_id=N;dependency_complete_amount=1;
+                wait_arm_valid=1;wait_arm_wave_id=N;tick();
+            end
+            launch(1);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
+            dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=7;dependency_issue_amount=1;
+            dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_kind=7;dependency_complete_amount=1;
+            strict_events=0;tick();
+            inputs_idle();strict_events=0;dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_amount=0;
+            dependency_complete_valid=1;dependency_complete_wave_id=a;dependency_complete_amount=0;tick();
+            finish_random();pass_case(case_name);
+        end
 
-        if(!cov_stall || !cov_full || !cov_wait || !cov_barrier || !cov_done_pending ||
-           !cov_reuse || !cov_net || !cov_nonblocking)
-            $fatal(1,"Missing M2 scenario coverage");
-        if(N>1 && !cov_concurrent) $fatal(1,"Missing independent-entry concurrency coverage");
-        if(N>1 && !cov_multiwake) $fatal(1,"Missing multi-hot wake coverage");
-        $display("M2 COVERAGE stalls=%0d full=%0d wait=%0d barrier=%0d pending_done=%0d reuse=%0d concurrent=%0d net=%0d multiwake=%0d nonblocking=%0d",
-            cov_stall,cov_full,cov_wait,cov_barrier,cov_done_pending,cov_reuse,cov_concurrent,cov_net,cov_multiwake,cov_nonblocking);
-        $display("TinyGPU M2: ALL %0d SCENARIO GROUPS PASSED N=%0d WG=%0d cycles=%0d checks=%0d",cases,N,P,cycles,checks);
+        if(scenario_enabled(7)) begin
+            begin_scenario(7,"asynchronous_reset_discards_stalled_launch");
+            launch(P*N);
+            for(i=0;i<N+3;i=i+1) begin inputs_idle();tick();end
+            if(!dut.u_scheduler.locked || !selected_valid) $fatal(1,"Reset test did not lock a launch");
+            reset_system();launch(1);finish_random();pass_case(case_name);
+        end
+
+        if(scenario_enabled(8)) begin
+            begin_scenario(8,"asynchronous_reset_aborts_active_kernel");
+            launch(P*N);accept_wave(a);prepare_commit(a,WAVE_STATE_READY);
+            dependency_issue_valid=1;dependency_issue_wave_id=a;dependency_issue_kind=DEP_LOAD;dependency_issue_amount=2;tick();
+            // Find and issue the original Wave again without committing others.
+            for(i=0;i<N;i=i+1) begin
+                accept_wave(j);
+                if(j==a) begin
+                    prepare_commit(a,WAVE_STATE_READY);commit_is_wait=1;wait_arm_valid=1;
+                    wait_arm_wave_id=a;wait_counter_mask=1;tick();
+                    i=N;
+                end
+            end
+            if(state_ref[a]!=WAVE_STATE_WAITCNT) $fatal(1,"Reset test did not create an active Wait");
+            reset_system();launch(33);finish_random();pass_case(case_name);
+        end
+
+        if(scenario_enabled(9)) begin
+            begin_scenario(9,"workgroup_id_crosses_65535");
+            launch(65536*P+1);
+            finish_workgroup_boundary();pass_case(case_name);
+        end
+
+        if(selected_scenario==0) begin
+            if(!cov_stall || !cov_full || !cov_wait || !cov_barrier || !cov_done_pending ||
+               !cov_reuse || !cov_net || !cov_nonblocking)
+                $fatal(1,"Missing M2 scenario coverage");
+            if(N>1 && !cov_concurrent) $fatal(1,"Missing independent-entry concurrency coverage");
+            if(!cov_wait_wakeups) $fatal(1,"Missing Wait wakeup coverage");
+            if(N>1 && !cov_multi_barrier) $fatal(1,"Missing multi-hot barrier-release coverage");
+            $display("M2 COVERAGE stalls=%0d full=%0d wait=%0d barrier=%0d pending_done=%0d reuse=%0d concurrent=%0d net=%0d wait_wakeups=%0d multi_barrier=%0d nonblocking=%0d",
+                cov_stall,cov_full,cov_wait,cov_barrier,cov_done_pending,cov_reuse,cov_concurrent,cov_net,cov_wait_wakeups,cov_multi_barrier,cov_nonblocking);
+            $display("TinyGPU M2: ALL %0d SCENARIO GROUPS PASSED N=%0d WG=%0d cycles=%0d checks=%0d",cases,N,P,cycles,checks);
+        end
+        else begin
+            if(cases!=1) $fatal(1,"Requested M2 scenario %0d did not execute exactly once",selected_scenario);
+            $display("TinyGPU M2: SCENARIO %0d PASSED N=%0d WG=%0d name=%s cycles=%0d checks=%0d",
+                selected_scenario,N,P,case_name,cycles,checks);
+        end
         $finish;
     end
-    initial begin #1000000;$fatal(1,"M2 whole-subsystem timeout");end
+    initial begin #100000000;$fatal(1,"M2 whole-subsystem timeout");end
 `ifdef FSDB
     initial begin
         $fsdbDumpfile("waves/tinygpu_m2.fsdb");

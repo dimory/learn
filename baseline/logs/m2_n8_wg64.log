@@ -1,13 +1,17 @@
-VCD info: dumpfile waves/tinygpu_m2.vcd opened for output.
 [PASS] M2 zero_thread N=8 WG=64
 [PASS] M2 dispatch_edges_and_random_lifecycle N=8 WG=64
 [PASS] M2 all_counter_bounds_wait_and_safe_retire N=8 WG=64
 [PASS] M2 completion_and_wait_arm_same_edge N=8 WG=64
-[PASS] M2 multi_hot_wakeup_snapshot N=8 WG=64
+[PASS] M2 multi_wave_wait_and_barrier_release N=8 WG=64
 [PASS] M2 invalid_events_ignored N=8 WG=64
 [PASS] M2 asynchronous_reset_discards_stalled_launch N=8 WG=64
 [PASS] M2 asynchronous_reset_aborts_active_kernel N=8 WG=64
+[INFO] M2 Workgroup boundary: executing the full prefix through normal ports
+[INFO] M2 Workgroup boundary progress: workgroup=16384 N=8 WG=64
+[INFO] M2 Workgroup boundary progress: workgroup=32768 N=8 WG=64
+[INFO] M2 Workgroup boundary progress: workgroup=49152 N=8 WG=64
+[INFO] M2 Workgroup boundary progress: workgroup=65536 N=8 WG=64
 [PASS] M2 workgroup_id_crosses_65535 N=8 WG=64
-M2 COVERAGE stalls=176 full=94 wait=508 barrier=59 pending_done=238 reuse=57 concurrent=72 net=7 multiwake=1 nonblocking=345
-TinyGPU M2: ALL 9 SCENARIO GROUPS PASSED N=8 WG=64 cycles=768 checks=203148
-tb/tb_wave_control_subsystem.sv:676: $finish called at 7710 (1ns)
+M2 COVERAGE stalls=178 full=121 wait=511 barrier=111 pending_done=263 reuse=131127 concurrent=131138 net=7 wait_wakeups=31 multi_barrier=1 nonblocking=344
+TinyGPU M2: ALL 9 SCENARIO GROUPS PASSED N=8 WG=64 cycles=131816 checks=34799820
+tb/tb_wave_control_subsystem.sv:696: $finish called at 1318190 (1ns)

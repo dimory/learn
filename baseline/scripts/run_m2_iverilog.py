@@ -2,6 +2,7 @@
 """Run the M2 whole-subsystem regression; no single-module tests are run."""
 import argparse
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -18,7 +19,11 @@ def main():
     parser.add_argument('--wg', type=int, default=64)
     parser.add_argument('--matrix', action='store_true')
     parser.add_argument('--vcd', action='store_true')
+    parser.add_argument('--timeout', type=int, default=300,
+        help='Runtime limit in seconds per configuration, including the full Workgroup boundary test')
     args = parser.parse_args()
+    if args.contexts <= 0 or args.wg <= 0 or args.timeout <= 0:
+        parser.error('--contexts, --wg, and --timeout must be positive integers')
     for tool in (args.iverilog, args.vvp):
         if shutil.which(tool) is None:
             parser.error('Executable not found: ' + tool)
@@ -32,7 +37,7 @@ def main():
         compile_args = [args.iverilog]
         if args.ivl_dir:
             compile_args += ['-B', args.ivl_dir]
-        compile_args += ['-g2012','-DM2_IVERILOG','-s','tb_wave_control_subsystem',
+        compile_args += ['-g2012','-s','tb_wave_control_subsystem',
             '-DM2_NUM_CONTEXTS=%d' % n,'-DM2_WG_THREADS=%d' % p,
             '-f','sim/filelist_m2_rtl.f','-f','sim/filelist_m2_tb.f','-o',str(output)]
         compile_run = subprocess.run(compile_args, cwd=ROOT, capture_output=True, text=True, timeout=60)
@@ -45,10 +50,15 @@ def main():
             run_args += [str(output)]
             if args.vcd:
                 run_args += ['+VCD']
-            run = subprocess.run(run_args,cwd=ROOT,capture_output=True,text=True,timeout=60)
+            run = subprocess.run(run_args,cwd=ROOT,capture_output=True,text=True,timeout=args.timeout)
             transcript = run.stdout+run.stderr
             (ROOT/'logs'/(label+'.log')).write_text(transcript)
-            passed = run.returncode == 0 and 'SCENARIO GROUPS PASSED' in transcript
+            signature = re.search(
+                r'^TinyGPU M2: ALL (\d+) SCENARIO GROUPS PASSED N=%d WG=%d cycles=(\d+) checks=(\d+)$' % (n,p),
+                transcript, re.MULTILINE)
+            passed = run.returncode == 0 and signature is not None
+            if args.vcd and passed:
+                shutil.copyfile(ROOT/'waves/tinygpu_m2.vcd', ROOT/'waves'/('tinygpu_m2_n%d_wg%d.vcd' % (n,p)))
             for line in transcript.splitlines():
                 if line.startswith(('TinyGPU M2:', 'M2 COVERAGE')) or 'FATAL' in line:
                     print(line,flush=True)

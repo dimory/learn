@@ -83,7 +83,6 @@ source_t s1;
 source_t s2;
 // Instruction header classification outputs.
 inst_format_t format;
-logic [2:0] length;
 m3_fault_t header_fault;
 // Instruction fields used during decoding.
 logic [31:0] word0;
@@ -175,6 +174,612 @@ function automatic source_t source(
         source = t;
     end
 endfunction
+
+// Classify the first DWORD of the assembled instruction.
+cdna_instruction_info u_instruction_info (
+    .instruction0(in_payload.instruction[31:0]),
+    .inst_format(format),
+    .inst_dwords(),
+    .fault(header_fault)
+);
+
+always_comb begin
+    // Extract instruction words.
+    word0 = in_payload.instruction[31:0];
+    literal = in_payload.instruction[95:32];
+
+    // Default decoded uop and source descriptors.
+    u = '0;
+    s0 = '0;
+    s1 = '0;
+    s2 = '0;
+
+    opcode = '0;
+    supported = 1'b1;
+    scalar_destination = 1'b0;
+    vector_destination = 1'b0;
+    dst_code = 9'd124;
+    dst_count = 5'd1;
+
+    // Preserve an earlier fetch fault.
+    decode_fault = in_payload.fault;
+    if (decode_fault == M3_FAULT_NONE) begin
+        decode_fault = header_fault;
+    end
+
+    // Common uop defaults.
+    u.valid = 1'b1;
+    u.inst_format = format;
+    u.inst_dwords = in_payload.inst_dwords;
+    u.write_pc = 1'b1;
+    u.mem_size = MEM_SIZE_B32;
+
+    // Decode format-specific fields.
+    case (format)
+        INST_FORMAT_SOP1: begin
+            opcode = {4'b0, word0[15:8]};
+            u.uop_class = UOP_CLASS_SALU;
+            u.function_code = UOP_FUNCTION_MOV;
+
+            scalar_destination = 1'b1;
+            dst_code = {2'b0, word0[22:16]};
+
+            case (opcode)
+                12'd0: begin
+                    // S_MOV_B32.
+                    dst_count = 5'd1;
+                end
+
+                12'd1: begin
+                    // S_MOV_B64.
+                    dst_count = 5'd2;
+                end
+
+                default: begin
+                    supported = 1'b0;
+                end
+            endcase
+
+            s0 = source(
+                {1'b0, word0[7:0]},
+                dst_count,
+                literal
+            );
+        end
+
+        INST_FORMAT_SOP2: begin
+            opcode = {5'b0, word0[29:23]};
+            u.uop_class = UOP_CLASS_SALU;
+
+            scalar_destination = 1'b1;
+            dst_code = {2'b0, word0[22:16]};
+            dst_count = 5'd1;
+            u.write_scc = 1'b1;
+
+            s0 = source({1'b0, word0[7:0]}, 5'd1, literal);
+            s1 = source({1'b0, word0[15:8]}, 5'd1, literal);
+
+            case (opcode)
+                12'd0: u.function_code = UOP_FUNCTION_ADD;
+                12'd1: u.function_code = UOP_FUNCTION_SUB;
+                12'd8: u.function_code = UOP_FUNCTION_SHL;
+                12'd10: u.function_code = UOP_FUNCTION_SHR;
+                12'd22: u.function_code = UOP_FUNCTION_AND;
+                12'd24: u.function_code = UOP_FUNCTION_OR;
+                12'd26: u.function_code = UOP_FUNCTION_XOR;
+
+                12'd44: begin
+                    // S_MUL_I32 does not update SCC.
+                    u.function_code = UOP_FUNCTION_MUL;
+                    u.write_scc = 1'b0;
+                end
+
+                default: begin
+                    supported = 1'b0;
+                end
+            endcase
+        end
+
+        INST_FORMAT_SOPC: begin
+            opcode = {5'b0, word0[22:16]};
+            u.uop_class = UOP_CLASS_SALU;
+            u.function_code = UOP_FUNCTION_CMP;
+            u.write_scc = 1'b1;
+
+            s0 = source({1'b0, word0[7:0]}, 5'd1, literal);
+            s1 = source({1'b0, word0[15:8]}, 5'd1, literal);
+
+            // S_CMP_EQ_U32: 6; S_CMP_LT_U32: 10.
+            u.compare_less = (opcode == 12'd10);
+
+            if ((opcode != 12'd6) && (opcode != 12'd10)) begin
+                supported = 1'b0;
+            end
+        end
+
+        INST_FORMAT_SOPP: begin
+            opcode = {5'b0, word0[22:16]};
+            u.uop_class = UOP_CLASS_SYSTEM;
+            u.function_code = UOP_FUNCTION_NOP;
+
+            u.immediate = {{16{word0[15]}}, word0[15:0]};
+            u.immediate_valid = 1'b1;
+
+            case (opcode)
+                12'd0: begin
+                    // Support the single-cycle S_NOP form.
+                    if (word0[15:0] != 16'd0) begin
+                        supported = 1'b0;
+                    end
+                end
+
+                12'd48: begin
+                    // S_ENDPGM.
+                    u.function_code = UOP_FUNCTION_END;
+                    u.end_program = 1'b1;
+                end
+
+                12'd32, 12'd33, 12'd34, 12'd35,
+                12'd36, 12'd37, 12'd38: begin
+                    u.uop_class = UOP_CLASS_BRANCH;
+                    u.function_code = UOP_FUNCTION_BRANCH;
+
+                    case (opcode)
+                        12'd32: begin
+                            u.branch_condition = BRANCH_CONDITION_ALWAYS;
+                        end
+
+                        12'd33: begin
+                            u.branch_condition = BRANCH_CONDITION_SCC0;
+                        end
+
+                        12'd34: begin
+                            u.branch_condition = BRANCH_CONDITION_SCC1;
+                        end
+
+                        12'd35: begin
+                            u.branch_condition = BRANCH_CONDITION_VCCZ;
+                        end
+
+                        12'd36: begin
+                            u.branch_condition = BRANCH_CONDITION_VCCNZ;
+                        end
+
+                        12'd37: begin
+                            u.branch_condition = BRANCH_CONDITION_EXECZ;
+                        end
+
+                        12'd38: begin
+                            u.branch_condition = BRANCH_CONDITION_EXECNZ;
+                        end
+
+                        default: begin
+                        end
+                    endcase
+                end
+
+                12'd64, 12'd65, 12'd69, 12'd70, 12'd71,
+                12'd72, 12'd73, 12'd74, 12'd75: begin
+                    u.uop_class = UOP_CLASS_WAIT;
+                    u.function_code = UOP_FUNCTION_WAIT;
+
+                    case (opcode)
+                        12'd64: begin
+                            u.wait_spec.mask[DEP_LOAD] = 1'b1;
+                            u.wait_spec.load_threshold = word0[5:0];
+                        end
+
+                        12'd65: begin
+                            u.wait_spec.mask[DEP_STORE] = 1'b1;
+                            u.wait_spec.store_threshold = word0[5:0];
+                        end
+
+                        12'd69: begin
+                            u.wait_spec.mask[DEP_X] = 1'b1;
+                            u.wait_spec.x_threshold = word0[5:0];
+                        end
+
+                        12'd70: begin
+                            u.wait_spec.mask[DEP_DS] = 1'b1;
+                            u.wait_spec.ds_threshold = word0[5:0];
+                        end
+
+                        12'd71: begin
+                            u.wait_spec.mask[DEP_KM] = 1'b1;
+                            u.wait_spec.km_threshold = word0[4:0];
+                        end
+
+                        12'd72: begin
+                            u.wait_spec.mask[DEP_LOAD] = 1'b1;
+                            u.wait_spec.mask[DEP_DS] = 1'b1;
+                            u.wait_spec.load_threshold = word0[13:8];
+                            u.wait_spec.ds_threshold = word0[5:0];
+                        end
+
+                        12'd73: begin
+                            u.wait_spec.mask[DEP_STORE] = 1'b1;
+                            u.wait_spec.mask[DEP_DS] = 1'b1;
+                            u.wait_spec.store_threshold = word0[13:8];
+                            u.wait_spec.ds_threshold = word0[5:0];
+                        end
+
+                        12'd74: begin
+                            u.wait_spec.mask[DEP_ASYNC] = 1'b1;
+                            u.wait_spec.async_threshold = word0[5:0];
+                        end
+
+                        12'd75: begin
+                            u.wait_spec.mask[DEP_TENSOR] = 1'b1;
+                            u.wait_spec.tensor_threshold = word0[5:0];
+                        end
+
+                        default: begin
+                        end
+                    endcase
+                end
+
+                default: begin
+                    supported = 1'b0;
+                end
+            endcase
+        end
+
+        INST_FORMAT_VOP1: begin
+            opcode = {5'b0, word0[15:9]};
+            u.uop_class = UOP_CLASS_VALU;
+            u.function_code = UOP_FUNCTION_MOV;
+            u.use_exec = 1'b1;
+
+            vector_destination = 1'b1;
+            dst_code = {1'b0, word0[24:17]};
+            dst_count = 5'd1;
+
+            s0 = source(word0[8:0], 5'd1, literal);
+
+            // Support V_MOV_B32 with the fixed modifier profile.
+            if ((opcode != 12'd1) || word0[16]) begin
+                supported = 1'b0;
+            end
+        end
+
+        INST_FORMAT_VOP2: begin
+            opcode = {6'b0, word0[30:25]};
+            u.uop_class = UOP_CLASS_VALU;
+            u.use_exec = 1'b1;
+
+            vector_destination = 1'b1;
+            dst_code = {1'b0, word0[24:17]};
+            dst_count = 5'd1;
+
+            s0 = source(word0[8:0], 5'd1, literal);
+            s1 = source(
+                9'd256 + {1'b0, word0[16:9]},
+                5'd1,
+                literal
+            );
+
+            case (opcode)
+                12'd37: u.function_code = UOP_FUNCTION_ADD;
+                12'd38: u.function_code = UOP_FUNCTION_SUB;
+                12'd24: u.function_code = UOP_FUNCTION_SHL;
+                12'd25: u.function_code = UOP_FUNCTION_SHR;
+                12'd27: u.function_code = UOP_FUNCTION_AND;
+                12'd28: u.function_code = UOP_FUNCTION_OR;
+                12'd29: u.function_code = UOP_FUNCTION_XOR;
+
+                default: begin
+                    supported = 1'b0;
+                end
+            endcase
+        end
+
+        INST_FORMAT_VOPC: begin
+            opcode = {4'b0, word0[24:17]};
+            u.uop_class = UOP_CLASS_VALU;
+            u.function_code = UOP_FUNCTION_CMP;
+            u.use_exec = 1'b1;
+            u.write_vcc = 1'b1;
+
+            s0 = source(word0[8:0], 5'd1, literal);
+            s1 = source(
+                9'd256 + {1'b0, word0[16:9]},
+                5'd1,
+                literal
+            );
+
+            // V_CMP_LT_U32: 73; V_CMP_EQ_U32: 74.
+            u.compare_less = (opcode == 12'd73);
+
+            if ((opcode != 12'd73) && (opcode != 12'd74)) begin
+                supported = 1'b0;
+            end
+        end
+
+        INST_FORMAT_SMEM: begin
+            opcode = {6'b0, word0[18:13]};
+            u.uop_class = UOP_CLASS_SMEM;
+            u.function_code = UOP_FUNCTION_LOAD;
+            u.mem_space = MEM_SPACE_SCALAR;
+            u.mem_operation = MEM_OP_LOAD;
+
+            // SBASE encodes an SGPR pair number.
+            s0 = source(
+                {2'b0, word0[5:0], 1'b0},
+                5'd2,
+                literal
+            );
+
+            scalar_destination = 1'b1;
+            dst_code = {2'b0, word0[12:6]};
+            dst_count = 5'd1;
+
+            // Support ordinary SGPR and NULL load destinations.
+            if ((dst_code >= 9'd106) && (dst_code != 9'd124)) begin
+                supported = 1'b0;
+            end
+
+            u.mem_offset = in_payload.instruction[55:32];
+
+            // Support S_LOAD_B32 with IOFFSET and NULL SOFFSET.
+            if ((opcode != 12'd0) ||
+                (word0[25:19] != 7'd0) ||
+                in_payload.instruction[56] ||
+                (in_payload.instruction[63:57] != 7'd124)) begin
+                supported = 1'b0;
+            end
+        end
+
+        INST_FORMAT_VGLOBAL: begin
+            opcode = {4'b0, word0[20:13]};
+            u.uop_class = UOP_CLASS_VMEM;
+            u.use_exec = 1'b1;
+            u.mem_space = MEM_SPACE_GLOBAL;
+            u.mem_offset = in_payload.instruction[95:72];
+
+            // NULL and selector 127 select the GV address form.
+            u.mem_gvs = (word0[6:0] != 7'd124) &&
+                        (word0[6:0] != 7'd127);
+
+            if (u.mem_gvs) begin
+                // GVS: VGPR offset plus SGPR base pair.
+                s0 = source(
+                    9'd256 + {1'b0, in_payload.instruction[71:64]},
+                    5'd1,
+                    literal
+                );
+
+                s1 = source(
+                    {2'b0, word0[6:0]},
+                    5'd2,
+                    literal
+                );
+
+                if (s1.kind != OPERAND_SGPR) begin
+                    supported = 1'b0;
+                end
+            end else begin
+                // GV: per-lane address from a VGPR pair.
+                s0 = source(
+                    9'd256 + {1'b0, in_payload.instruction[71:64]},
+                    5'd2,
+                    literal
+                );
+            end
+
+            case (opcode)
+                12'd20: begin
+                    // GLOBAL_LOAD_B32.
+                    u.function_code = UOP_FUNCTION_LOAD;
+                    u.mem_operation = MEM_OP_LOAD;
+
+                    vector_destination = 1'b1;
+                    dst_code = {1'b0, in_payload.instruction[39:32]};
+                    dst_count = 5'd1;
+
+                    if (in_payload.instruction[62:55] != 8'd0) begin
+                        supported = 1'b0;
+                    end
+                end
+
+                12'd26: begin
+                    // GLOBAL_STORE_B32.
+                    u.function_code = UOP_FUNCTION_STORE;
+                    u.mem_operation = MEM_OP_STORE;
+
+                    s2 = source(
+                        9'd256 + {1'b0, in_payload.instruction[62:55]},
+                        5'd1,
+                        literal
+                    );
+
+                    if (in_payload.instruction[39:32] != 8'd0) begin
+                        supported = 1'b0;
+                    end
+                end
+
+                default: begin
+                    supported = 1'b0;
+                end
+            endcase
+
+            // Enforce the fixed modifier profile.
+            if ((word0[12:7] != 6'd0) ||
+                (word0[23:21] != 3'd0) ||
+                (in_payload.instruction[54:40] != 15'd0) ||
+                in_payload.instruction[63]) begin
+                supported = 1'b0;
+            end
+        end
+
+        INST_FORMAT_VDS: begin
+            opcode = {4'b0, word0[25:18]};
+            u.uop_class = UOP_CLASS_LDS;
+            u.use_exec = 1'b1;
+            u.mem_space = MEM_SPACE_LDS;
+
+            // DS byte offset is unsigned for these operations.
+            u.mem_offset = {8'b0, word0[15:0]};
+
+            s0 = source(
+                9'd256 + {1'b0, in_payload.instruction[39:32]},
+                5'd1,
+                literal
+            );
+
+            case (opcode)
+                12'd54: begin
+                    // DS_LOAD_B32.
+                    u.function_code = UOP_FUNCTION_LOAD;
+                    u.mem_operation = MEM_OP_LOAD;
+
+                    vector_destination = 1'b1;
+                    dst_code = {1'b0, in_payload.instruction[63:56]};
+                    dst_count = 5'd1;
+
+                    if (in_payload.instruction[55:40] != 16'd0) begin
+                        supported = 1'b0;
+                    end
+                end
+
+                12'd13: begin
+                    // DS_STORE_B32.
+                    u.function_code = UOP_FUNCTION_STORE;
+                    u.mem_operation = MEM_OP_STORE;
+
+                    s2 = source(
+                        9'd256 + {1'b0, in_payload.instruction[47:40]},
+                        5'd1,
+                        literal
+                    );
+
+                    if (in_payload.instruction[63:48] != 16'd0) begin
+                        supported = 1'b0;
+                    end
+                end
+
+                default: begin
+                    supported = 1'b0;
+                end
+            endcase
+
+            if (word0[17:16] != 2'd0) begin
+                supported = 1'b0;
+            end
+        end
+
+        default: begin
+            supported = 1'b0;
+        end
+    endcase
+
+    // Normalize and validate the scalar destination.
+    if (scalar_destination) begin
+        u.dst_index = cdna_reg_index_t'(dst_code);
+        u.dst_count = dst_count;
+
+        if (dst_code <= 9'd105) begin
+            u.dst_kind = OPERAND_SGPR;
+            u.dst_valid = 1'b1;
+
+            if (decode_fault == M3_FAULT_NONE) begin
+                if ((int'(dst_code) + int'(dst_count)) > NUM_SGPRS) begin
+                    decode_fault = M3_FAULT_RF_RANGE;
+                end else if ((dst_count == 5'd2) && dst_code[0]) begin
+                    decode_fault = M3_FAULT_OPERAND;
+                end
+            end
+        end else if (dst_count == 5'd1) begin
+            case (dst_code)
+                9'd106: begin
+                    u.dst_kind = OPERAND_VCC;
+                    u.dst_valid = 1'b1;
+                    u.write_vcc = 1'b1;
+                end
+
+                9'd124: begin
+                    // NULL discards SDST and preserves the SCC update.
+                    u.dst_kind = OPERAND_NONE;
+                    u.dst_valid = 1'b0;
+                    u.dst_count = '0;
+                end
+
+                9'd125: begin
+                    u.dst_kind = OPERAND_M0;
+                    u.dst_valid = 1'b1;
+                end
+
+                9'd126: begin
+                    u.dst_kind = OPERAND_EXEC;
+                    u.dst_valid = 1'b1;
+                    u.write_exec = 1'b1;
+                end
+
+                default: begin
+                    supported = 1'b0;
+                end
+            endcase
+        end else begin
+            supported = 1'b0;
+        end
+    end
+
+    // Normalize and validate the vector destination.
+    if (vector_destination) begin
+        u.dst_kind = OPERAND_VGPR;
+        u.dst_index = cdna_reg_index_t'(dst_code);
+        u.dst_count = 5'd1;
+        u.dst_valid = 1'b1;
+
+        if ((int'(dst_code) >= NUM_VGPRS) &&
+            (decode_fault == M3_FAULT_NONE)) begin
+            decode_fault = M3_FAULT_RF_RANGE;
+        end
+    end
+
+    // Merge faults without overwriting an earlier fault.
+    if (!supported && decode_fault == M3_FAULT_NONE) begin
+        decode_fault = M3_FAULT_UNSUPPORTED;
+    end
+
+    if (s0.fault != M3_FAULT_NONE && decode_fault == M3_FAULT_NONE) begin
+        decode_fault = s0.fault;
+    end
+
+    if (s1.fault != M3_FAULT_NONE && decode_fault == M3_FAULT_NONE) begin
+        decode_fault = s1.fault;
+    end
+
+    if (s2.fault != M3_FAULT_NONE && decode_fault == M3_FAULT_NONE) begin
+        decode_fault = s2.fault;
+    end
+
+    // Copy source operand descriptors into the decoded uop.
+    u.src0_kind = s0.kind;
+    u.src0_index = s0.index;
+    u.src0_count = s0.count;
+    u.src0_immediate = s0.value;
+
+    u.src1_kind = s1.kind;
+    u.src1_index = s1.index;
+    u.src1_count = s1.count;
+    u.src1_immediate = s1.value;
+
+    u.src2_kind = s2.kind;
+    u.src2_index = s2.index;
+    u.src2_count = s2.count;
+    u.src2_immediate = s2.value;
+
+    // Preserve the ISA opcode and mark decode faults.
+    u.isa_opcode = opcode;
+    u.illegal = (decode_fault != M3_FAULT_NONE);
+
+    // Assemble the output payload.
+    out_payload = '0;
+    out_payload.context_data = in_payload.context_data;
+    out_payload.instruction = in_payload.instruction;
+    out_payload.uop = u;
+    out_payload.fault = decode_fault;
+end
 
 
 endmodule

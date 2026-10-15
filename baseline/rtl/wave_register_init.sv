@@ -252,6 +252,45 @@ always_comb begin
 	end
 end
 
+// ============================================================================
+// First-fault record
+//
+// Capture the first fault and hold all recorded fields until reset.
+// Same-cycle priority: LAUNCH > DECODE > MEMORY.
+// An invalid launch uses zero placeholders for wave ID and instruction.
+// ============================================================================
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        fault_valid <= 1'b0;
+        fault_wave_id <= '0;
+        fault_code <= M3_FAULT_NONE;
+        fault_pc <= '0;
+        fault_instruction <= '0;
+    end
+    else if (!fault_valid) begin
+        if (launch_candidate && !launch_config_legal) begin
+            fault_valid <= 1'b1;
+            fault_wave_id <= '0;
+            fault_code <= M3_FAULT_LAUNCH;
+            fault_pc <= launch_start_pc;
+            fault_instruction <= '0;
+        end
+        else if (decode_fault_valid) begin
+            fault_valid <= 1'b1;
+            fault_wave_id <= decode_fault_wave_id;
+            fault_code <= decode_fault_code;
+            fault_pc <= decode_fault_pc;
+            fault_instruction <= decode_fault_instruction;
+        end
+        else if (memory_fault_valid) begin
+            fault_valid <= 1'b1;
+            fault_wave_id <= memory_fault_wave_id;
+            fault_code <= M3_FAULT_MEMORY;
+            fault_pc <= memory_fault_pc;
+            fault_instruction <= memory_fault_instruction;
+        end
+    end
+end
 
 
 

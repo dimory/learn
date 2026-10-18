@@ -337,42 +337,45 @@ always_ff @ (posedge clk or negedge rst_n)begin
 		end		
 	end
 	else if ((state == CAPTURE) && (source_kind == OPERAND_VGPR)) begin
-		for (beat = 0; beat < 8 ; beat = beat + 1)begin
-			for (physical_lane = 0; physical_lane <4; physical_lane = physical_lane+1)begin
-				case (source_index)
-					2'b00   : begin
-						packet.src0[(beat*4 + physical_lane)*64 +: 32]
-							<= vgpr_read_data0[physical_lane*32 +: 32];
-						packet.src0[(beat*4 + physical_lane)*64 + 32 +: 32]
-							<= (source_count == 5'd2)
-							   ? vgpr_read_data1[physical_lane*32 +: 32]
-							   : 32'b0;						
-					end
-					2'b01   : begin
-						packet.src1[(beat*4 + physical_lane)*64 +: 32]
-							<= vgpr_read_data0[physical_lane*32 +: 32];
-						packet.src1[(beat*4 + physical_lane)*64 + 32 +: 32]
-							<= (source_count == 5'd2)
-							   ? vgpr_read_data1[physical_lane*32 +: 32]
-							   : 32'b0;							
-					end
-					default : begin
-						packet.src2[(beat*4 + physical_lane)*64 +: 32]
-							<= vgpr_read_data0[physical_lane*32 +: 32];
-						packet.src2[(beat*4 + physical_lane)*64 + 32 +: 32]
-							<= (source_count == 5'd2)
-							   ? vgpr_read_data1[physical_lane*32 +: 32]
-							   : 32'b0;						
-					end
-				endcase
-			end
-			beat <= (beat == 3'd7) ? 3'd0 : beat + 1'b1;
+		for (physical_lane = 0; physical_lane <4; physical_lane = physical_lane+1)begin
+			case (source_index)
+				2'b00   : begin
+					packet.src0[(beat*4 + physical_lane)*64 +: 32]
+						<= vgpr_read_data0[physical_lane*32 +: 32];
+					packet.src0[(beat*4 + physical_lane)*64 + 32 +: 32]
+						<= (source_count == 5'd2)
+						   ? vgpr_read_data1[physical_lane*32 +: 32]
+						   : 32'b0;						
+				end
+				2'b01   : begin
+					packet.src1[(beat*4 + physical_lane)*64 +: 32]
+						<= vgpr_read_data0[physical_lane*32 +: 32];
+					packet.src1[(beat*4 + physical_lane)*64 + 32 +: 32]
+						<= (source_count == 5'd2)
+						   ? vgpr_read_data1[physical_lane*32 +: 32]
+						   : 32'b0;							
+				end
+				default : begin
+					packet.src2[(beat*4 + physical_lane)*64 +: 32]
+						<= vgpr_read_data0[physical_lane*32 +: 32];
+					packet.src2[(beat*4 + physical_lane)*64 + 32 +: 32]
+						<= (source_count == 5'd2)
+						   ? vgpr_read_data1[physical_lane*32 +: 32]
+						   : 32'b0;						
+				end
+			endcase
 		end
-		if(source_index < 2)begin
-			source_index <= source_index + 1'b1;
-		end
-	end
-end
+        if (beat == 3'd7) begin
+            beat <= '0;
+            if (source_index < 2) begin
+                source_index <= source_index + 1'b1;
+            end
+        end
+        else begin
+            beat <= beat + 1'b1;
+        end
+    end 
+end 
 always_comb begin
 	next_state = state;
 	case(state)
@@ -401,7 +404,11 @@ always_comb begin
 			else if(source_kind == OPERAND_VGPR)begin
 				if(beat != 3'd7)
 					next_state = REQUEST;
-			
+				else if (source_index == 2)
+					next_state = SEND;
+				else begin
+					next_state = SOURCE;
+				end
 			end
 		end
 		SEND : begin

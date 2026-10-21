@@ -186,13 +186,13 @@ always_comb begin
 		end
 		2'b01 : begin
 			source_kind = packet.decoded.uop.src1_kind;
-			source_register =  packet.decoded.src1_uop.index;
+			source_register =  packet.decoded.uop.src1_index;
 			source_count =  packet.decoded.uop.src1_count;
 			source_value = packet.decoded.uop.src1_immediate;		
 		end
 		default : begin
 			source_kind = packet.decoded.uop.src2_kind;
-			source_register =  packet.decoded.src2_uop.index;
+			source_register =  packet.decoded.uop.src2_index;
 			source_count =  packet.decoded.uop.src2_count;
 			source_value = packet.decoded.uop.src2_immediate;				
 		end

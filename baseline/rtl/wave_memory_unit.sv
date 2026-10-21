@@ -220,14 +220,331 @@ integer ft;
 integer w;
 integer k;
 integer ff_fifo;
-
+assign issue_ready = (state == IDLE) && free_valid;
+assign issue_fire  = issue_valid && issue_ready;
 always_comb begin
 	free_valid     = 1'b0;
 	free_tag       = '0;
 	allocated_mask = '0;
-
+	for (t = 0; t < NUM_MEMORY_TAGS; t = t + 1)begin
+		allocated_mask[t] = tags[t].allocated;
+		if(!allocated_mask[t] && !free_valid)begin
+			free_tag = TAG_BITS'(t);
+			free_valid = 1'b1;
+		end
+	end
 end
 
+always_comb begin
+    prepared = '0;
+
+    prepared.transaction_id = 8'(free_tag);
+    prepared.space = issue_payload.decoded.uop.mem_space;
+    prepared.operation = issue_payload.decoded.uop.mem_operation;
+    prepared.workgroup_id =
+        issue_payload.decoded.context_data.workgroup_id;
+    prepared.group_segment_bytes = group_segment_bytes;
+
+    // Default: vector memory follows the captured EXEC mask.
+    prepared.active_mask =
+        issue_payload.decoded.context_data.exec_mask[31:0];	
+    if(prepared.space == MEM_SPACE_SCALAR)
+		prepared.active_mask = 32'b1;
+	else if (prepared.space == MEM_SPACE_GLOBAL || prepared.space == MEM_SPACE_LDS)
+		    prepared.active_mask =
+				issue_payload.decoded.context_data.exec_mask[31:0];	
+		
+
+    no_active = !(|prepared.active_mask);
+
+    prepared_kind = DEP_LOAD;
+	if (prepared.space == MEM_SPACE_SCALAR)
+		prepared_kind = DEP_KM;
+	else if (prepared.space == MEM_SPACE_LDS)
+		prepared_kind = DEP_DS;
+	else if (prepared.operation == MEM_OP_STORE)
+		prepared_kind = DEP_STORE;
+	else
+		prepared_kind = DEP_LOAD;
+
+
+    prepared.kind = prepared_kind;
+// Sign-extend the 24-bit instruction offset to 64 bits.
+	offset = {
+		{40{issue_payload.decoded.uop.mem_offset[23]}},
+		issue_payload.decoded.uop.mem_offset
+	};
+
+	address = '0;
+
+	for (lane = 0; lane < 32; lane = lane + 1) begin
+		if (prepared.space == MEM_SPACE_LDS) begin
+			address = {32'b0,(issue_payload.src0[lane*64 +: 32] + issue_payload.decoded.uop.mem_offset[15:0])} ;
+		end
+		else if ((prepared.space == MEM_SPACE_GLOBAL) &&
+				 issue_payload.decoded.uop.mem_gvs) begin
+			address = issue_payload.src1[lane*64 +: 64] + {{32{issue_payload.src0[lane*64 + 31]}},issue_payload.src0[lane*64 +: 32]} + offset;
+		end
+		else begin
+			address = issue_payload.src0[lane*64 +: 64] + offset;
+		end
+
+		prepared.addresses[lane*64 +: 64] = address;
+
+		prepared.store_data[lane*32 +: 32] =
+			issue_payload.src2[lane*64 +: 32];
+	end	
+    // Address and store-data generation will be added here.
+end
+assign mem_req_valid   = (state == REQUEST);
+assign mem_req_wave_id = command_wave;
+assign mem_req_payload = command;
+assign mem_req_fire    = mem_req_valid && mem_req_ready;
+
+assign memory_commit_valid   = (state == COMMIT);
+assign memory_commit_wave_id = command_wave;
+assign memory_commit_payload = command_commit;
+assign memory_commit_fire =
+    memory_commit_valid && memory_commit_ready;
+
+// Count the operation when the memory backend accepts it.
+assign dependency_issue_valid   = mem_req_fire;
+assign dependency_issue_wave_id = command_wave;
+assign dependency_issue_kind    = command.kind;
+
+always_ff @(posedge clk or negedge rst_n)begin
+	if (!rst_n)
+		state <= IDLE;
+	else 
+		state <= next_state;
+end
+always_comb begin
+	next_state = state;
+	case(state)
+		IDLE : begin
+			if(!no_active && issue_fire)
+				next_state = REQUEST;
+			else if (no_active && issue_fire)
+				next_state = COMMIT;
+		end
+		REQUEST : begin
+			if (mem_req_fire)
+				next_state = COMMIT;	
+		end
+		COMMIT : begin
+			if (memory_commit_fire)begin
+				next_state = IDLE;
+			end
+		end
+		default : begin
+			next_state = IDLE;
+		end
+	endcase
+end
+always_ff @(posedge clk or negedge rst_n)begin
+	if (!rst_n)begin
+		command <= '0;
+		command_wave <= '0;
+		command_commit <= '0;
+	end
+	else begin
+		if (issue_fire)begin
+			command <= prepared;
+			command_wave <= issue_wave_id;
+			command_commit <= m3_sequential_commit(issue_payload.decoded);
+		end
+	end
+end
+
+assign request_tag = TAG_BITS'(command.transaction_id);
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        // Clear all transaction tags.
+        for (ft = 0; ft < NUM_MEMORY_TAGS; ft = ft + 1) begin
+            tags[ft] <= '0;
+        end
+
+        // Initialize ordering state for each wave and dependency kind.
+        for (w = 0; w < NUM_WAVE_CONTEXTS; w = w + 1) begin
+            for (k = 0; k < DEPENDENCY_COUNTER_COUNT; k = k + 1) begin
+                next_sequence[w][k] <= '0;
+                head_sequence[w][k] <= '0;
+            end
+        end
+    end
+    else begin
+        // Reserve a tag when accepting an active memory instruction.
+        if (issue_fire && !no_active) begin
+            tags[free_tag] <= '0;
+
+            tags[free_tag].allocated <= 1'b1;
+            tags[free_tag].wave_id   <= issue_wave_id;
+            tags[free_tag].kind      <= prepared_kind;
+            tags[free_tag].is_load   <=
+                (prepared.operation == MEM_OP_LOAD);
+
+            tags[free_tag].dst_kind <=
+                issue_payload.decoded.uop.dst_kind;
+            tags[free_tag].dst_index <=
+                issue_payload.decoded.uop.dst_index;
+            tags[free_tag].dst_count <=
+                issue_payload.decoded.uop.dst_count;
+
+            tags[free_tag].mask <= prepared.active_mask;
+
+            tags[free_tag].sequence_id <=
+                next_sequence[issue_wave_id][prepared_kind];
+
+            tags[free_tag].origin_pc <=
+                issue_payload.decoded.context_data.pc;
+            tags[free_tag].instruction0 <=
+                issue_payload.decoded.instruction[31:0];
+
+            next_sequence[issue_wave_id][prepared_kind] <=
+                next_sequence[issue_wave_id][prepared_kind] + 1'b1;
+        end
+
+        // Mark the saved request as accepted by the memory backend.
+        if (mem_req_fire) begin
+            tags[request_tag].sent <= 1'b1;
+        end
+		// The response has finished processing.
+		if (fifo_pop) begin
+			tags[head_tag].rf_done <= 1'b1;
+		end
+		if (complete_valid)begin
+			tags[complete_tag].allocated <= 1'b0;
+			if(tags[complete_tag].kind != DEP_KM)
+				head_sequence[tags[complete_tag].wave_id][tags[complete_tag].kind] <= head_sequence[tags[complete_tag].wave_id][tags[complete_tag].kind] + 1'b1;		
+		end
+    end
+end
+
+// Accept a response when the FIFO has space.
+assign mem_rsp_ready =
+    (int'(fifo_count) < RETURN_FIFO_DEPTH);
+
+assign mem_rsp_fire = mem_rsp_valid && mem_rsp_ready;
+assign fifo_push = mem_rsp_fire;
+
+// Look up the transaction information for the FIFO head.
+assign head_tag =
+    TAG_BITS'(response_fifo[fifo_read].transaction_id);
+
+// Only loads produce a register-writeback result.
+assign result_valid =
+    (fifo_count != '0) && tags[head_tag].is_load;
+
+assign result_fire = result_valid && result_ready;
+
+// Stores consume their acknowledgement directly.
+// Loads remain at the head until writeback accepts the full result.
+assign fifo_pop =
+    (fifo_count != '0) &&
+    (!tags[head_tag].is_load || result_fire);
+
+always_ff @(posedge clk or negedge rst_n)begin
+	if (!rst_n)begin
+		fifo_read  <= '0;
+		fifo_write <= '0;
+		fifo_count <= '0;	
+		for (ff_fifo = 0; ff_fifo < RETURN_FIFO_DEPTH; ff_fifo = ff_fifo + 1)begin
+			response_fifo[ff_fifo] <= '0;
+		end
+	end
+	else begin
+		case({fifo_push,fifo_pop})
+			2'b10: begin
+				fifo_count <= fifo_count +1'b1;
+				response_fifo[fifo_write] <= mem_rsp_payload;
+				fifo_write <= (fifo_write == (RETURN_FIFO_DEPTH-1)) ? '0 : fifo_write + 1'b1;
+			end
+			2'b01: begin
+				fifo_count <= fifo_count -1'b1;
+				fifo_read  <= (fifo_read == (RETURN_FIFO_DEPTH-1)) ? '0 : fifo_read + 1'b1;
+			end
+			2'b11: begin
+				response_fifo[fifo_write] <= mem_rsp_payload;
+				fifo_write <= (fifo_write == (RETURN_FIFO_DEPTH-1)) ? '0 : fifo_write + 1'b1;
+				fifo_read  <= (fifo_read == (RETURN_FIFO_DEPTH-1)) ? '0 : fifo_read + 1'b1;
+			end
+			default: begin
+			
+			end
+			
+		endcase
+	
+	end
+end
+
+assign result_wave_id = tags[head_tag].wave_id;
+
+always_comb begin
+    result_payload = '0;
+
+    result_payload.dst_kind  = tags[head_tag].dst_kind;
+    result_payload.dst_index = tags[head_tag].dst_index;
+    result_payload.dst_count = tags[head_tag].dst_count;
+    result_payload.write_mask = tags[head_tag].mask;
+
+    result_payload.clear_busy = 1'b1;
+    result_payload.suppress_write =
+        response_fifo[fifo_read].error;
+
+    // Expand each 32-bit return value into a 64-bit lane slot.
+    // The upper DWORD remains zero from the default assignment.
+    for (p = 0; p < 32; p = p + 1) begin
+        result_payload.data[p*64 +: 32] =
+            response_fifo[fifo_read].load_data[p*32 +: 32];
+    end
+end
+
+always_comb begin
+	complete_valid = 1'b0;
+	complete_tag   = '0;
+	index         = 0;	
+	for (scan = 0; scan < NUM_MEMORY_TAGS; scan = scan + 1)begin
+		index = (complete_pointer  + scan) >= NUM_MEMORY_TAGS ? (complete_pointer  + scan - NUM_MEMORY_TAGS) : (complete_pointer  + scan);
+		if (!complete_valid && tags[index].allocated &&
+			tags[index].sent &&
+			tags[index].rf_done &&
+			(
+				(tags[index].kind == DEP_KM) ||
+				(tags[index].sequence_id ==
+				head_sequence[tags[index].wave_id][tags[index].kind])
+			))begin
+			complete_valid = 1'b1;
+			complete_tag = TAG_BITS'(index);
+		end
+	end
+end
+always_ff @ (posedge clk or negedge rst_n)begin
+	if (!rst_n)
+		complete_pointer <= '0;
+	else if (complete_valid)
+		complete_pointer <= (complete_tag == (NUM_MEMORY_TAGS-1))? '0 : complete_tag + 1'b1;
+end
+assign dependency_complete_valid = complete_valid;
+
+assign dependency_complete_wave_id =
+    tags[complete_tag].wave_id;
+
+assign dependency_complete_kind =
+    tags[complete_tag].kind;
+// Identify the response being accepted into the FIFO.
+assign response_tag = TAG_BITS'(mem_rsp_payload.transaction_id);
+
+// Report an error when accepting the response.
+assign fault_valid = mem_rsp_fire && mem_rsp_payload.error;
+
+assign fault_wave_id =
+    tags[response_tag].wave_id;
+
+assign fault_pc =
+    tags[response_tag].origin_pc;
+
+assign fault_instruction =
+    tags[response_tag].instruction0;
 
 endmodule
 

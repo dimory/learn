@@ -698,9 +698,10 @@ always_comb begin
 
                 9'd124: begin
                     // NULL discards SDST and preserves the SCC update.
-                    u.dst_kind = OPERAND_NONE;
-                    u.dst_valid = 1'b0;
-                    u.dst_count = '0;
+					u.dst_kind = OPERAND_NONE;
+					u.dst_valid = 1'b0;
+					u.dst_count = '0;
+					u.write_scc = 1'b0;
                 end
 
                 9'd125: begin

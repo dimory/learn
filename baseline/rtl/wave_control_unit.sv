@@ -119,10 +119,10 @@ always_comb begin
 			taken = 1'b1;
 		end
 		BRANCH_CONDITION_SCC0 : begin
-			taken = !issue_payload.decoded.context_data.scc[31:0];
+			taken = !issue_payload.decoded.context_data.scc;
 		end
 		BRANCH_CONDITION_SCC1 : begin
-			taken = issue_payload.decoded.context_data.scc[31:0];
+			taken = issue_payload.decoded.context_data.scc;
 		end
 		BRANCH_CONDITION_VCCZ : begin
 			taken = !(|issue_payload.decoded.context_data.vcc[31:0]);

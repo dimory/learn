@@ -144,7 +144,8 @@ always_ff @(posedge clk or negedge rst_n)begin
 			else begin
 				pending[result_wave_id] <= 1'b0;
 				rf_initialized_mask[result_wave_id] <= 1'b1;
-			end		
+			end	
+		end
 		if (release_valid)begin
 			pending[release_wave_id] <= '0;
 			rf_initialized_mask[release_wave_id] <= '0;
@@ -154,9 +155,7 @@ always_ff @(posedge clk or negedge rst_n)begin
 			rf_initialized_mask[alloc_wave_id] <= '0;
 			cursor[alloc_wave_id] <= '0;	
 			wave_index[alloc_wave_id] <= alloc_wave_index;
-		end
-
-		end		
+		end	
 	end
 end
 

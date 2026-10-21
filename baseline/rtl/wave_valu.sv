@@ -66,7 +66,7 @@ integer ffp;
 assign issue_fire = issue_valid && issue_ready;
 assign result_fire = result_valid && result_ready;
 assign issue_ready = (state == IDLE);
-assign result_valid = (state = SEND);
+assign result_valid = (state == SEND);
 always_ff @(posedge clk or negedge rst_n)begin
 	if (!rst_n)begin
 		state <= IDLE;

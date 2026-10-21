@@ -83,6 +83,8 @@ module wave_control_subsystem #(
     // Wave launch to the execution path.
     output logic selected_valid,
     input logic selected_ready,
+    // M3 admission filter, applied before Scheduler arbitration.
+    input logic [NUM_WAVE_CONTEXTS-1:0] schedule_enable_mask,
     output logic [WAVE_ID_BITS-1:0] selected_wave_id,
     output logic selected_context_valid,
     output gpu_pkg::wave_context_state_t selected_state,
@@ -150,6 +152,8 @@ module wave_control_subsystem #(
     output logic [NUM_WAVE_CONTEXTS-1:0] all_counters_zero_mask,
     output logic alloc_fire,
     output logic [WAVE_ID_BITS-1:0] alloc_wave_id,
+    output logic [WORKGROUP_ID_BITS-1:0] alloc_workgroup_id_out,
+    output logic [WG_WAVE_ID_BITS-1:0] alloc_wave_index_out,
     output logic schedule_fire,
     output logic retire_fire,
     output logic [WAVE_ID_BITS-1:0] retire_wave_id
@@ -163,6 +167,10 @@ module wave_control_subsystem #(
     logic [WG_WAVE_COUNT_BITS-1:0] alloc_waves_in_workgroup;
     logic [GLOBAL_THREAD_ID_BITS-1:0] alloc_global_thread_base;
     logic wave_completed;
+    logic [NUM_WAVE_CONTEXTS-1:0] scheduler_ready_mask;
+    assign scheduler_ready_mask = ready_mask & schedule_enable_mask;
+    assign alloc_workgroup_id_out = alloc_workgroup_id;
+    assign alloc_wave_index_out = alloc_wave_index;
 
     assign alloc_fire = alloc_valid && alloc_ready;
     assign schedule_fire = selected_valid && selected_ready;
@@ -223,7 +231,7 @@ module wave_control_subsystem #(
     wave_scheduler #(
         .NUM_WAVE_CONTEXTS(NUM_WAVE_CONTEXTS), .WAVE_ID_BITS(WAVE_ID_BITS)
     ) u_scheduler (
-        .clk(clk), .rst_n(rst_n), .ready_mask(ready_mask),
+        .clk(clk), .rst_n(rst_n), .ready_mask(scheduler_ready_mask),
         .selected_valid(selected_valid), .selected_ready(selected_ready),
         .selected_wave_id(selected_wave_id)
     );
